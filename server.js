@@ -129,13 +129,17 @@ function roomSummary(code) {
 
 // cleanup idle rooms every 10 minutes
 setInterval(() => {
-  const now = Date.now();
-  for (const [code, room] of rooms) {
-    if (now - room.lastActivity > 6 * 60 * 60 * 1000 || room.players.length === 0) {
-      rooms.delete(code);
-      for (const [uid, c] of personalRoom) if (c === code) personalRoom.delete(uid);
-      for (const [uid, c] of userRoom) if (c === code) userRoom.delete(uid);
+  try {
+    const now = Date.now();
+    for (const [code, room] of rooms) {
+      if (now - room.lastActivity > 6 * 60 * 60 * 1000 || room.players.length === 0) {
+        rooms.delete(code);
+        for (const [uid, c] of userRoom) if (c === code) userRoom.delete(uid);
+        console.log(`[cleanup] removed idle room ${code}`);
+      }
     }
+  } catch (e) {
+    console.error('[cleanup] error:', e);
   }
 }, 10 * 60 * 1000).unref();
 
@@ -233,6 +237,9 @@ io.on('connection', (socket) => {
     if (p) p.connected = true;
     socket.emit('joined', { code: room.code });
     broadcastRoom(room);
+  } else {
+    // No room: tell the client to show the home screen
+    socket.emit('state', { viewer: null, state: 'home' });
   }
 
   // create a brand-new personal room (hosted by this user)

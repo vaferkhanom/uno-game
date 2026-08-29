@@ -99,8 +99,10 @@
         } else {
           socket.emit('joinRoom', { code: String(sp).toUpperCase() });
         }
+      } else {
+        // بدون startapp → مستقیماً به خانه برو
+        showScreen('home');
       }
-      // بدون startapp → فقط به خانه می‌رویم، اتاق نمی‌سازیم
     });
 
     socket.on('connect_error', (err) => {
