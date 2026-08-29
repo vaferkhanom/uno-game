@@ -26,6 +26,20 @@ BOT_TOKEN=<telegram-bot-token> WEBAPP_URL=https://your-domain.up.railway.app npm
 | `PORT` | پورت سرور (پیش‌فرض 3000 — روی Railway خودکار) |
 | `BOT_TOKEN` | توکن ربات تلگرام |
 | `WEBAPP_URL` | آدرس Mini App (برای دکمه وب‌اپ ربات) |
+| `RAILWAY_TOKEN` | توکن اکانت Railway برای وب‌هوک دیپلوی خودکار |
+| `RAILWAY_SERVICE_ID` | شناسه سرویس Railway (برای دیپلوی خودکار) |
+| `RAILWAY_ENV_ID` | شناسه محیط Railway production |
+| `GH_WEBHOOK_SECRET` | راز امضای وب‌هوک گیت‌هاب |
+
+## 🤖 دیپلوی خودکار (GitHub → Railway)
+
+هر push روی برنچ `main` به صورت خودکار روی Railway دیپلوی می‌شود:
+
+1. گیت‌هاب یک وب‌هوک `push` به `POST /railway/deploy` روی برنامه می‌فرستد
+2. سرور امضای HMAC را با `GH_WEBHOOK_SECRET` بررسی می‌کند
+3. سپس با `serviceInstanceDeployV2(commitSha)` در GraphQL ریلی‌وی، دیپلوی جدید می‌سازد
+
+به همین دلیل هیچ‌وقت نیازی به دیپلوی دستی نیست؛ فقط `git push` کنید.
 
 ## 🎮 نحوه بازی
 
