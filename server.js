@@ -17,9 +17,51 @@ const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 1e6 });
 
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/healthz', (req, res) => res.json({ ok: true, uptime: process.uptime(), rooms: rooms.size }));
 app.get('/api/config', (req, res) => res.json({ botUsername: BOT_USERNAME, maxPlayers: MAX_PLAYERS }));
+
+// ---------- GitHub push webhook → خودکار deploy روی Railway ----------
+const RAILWAY_API = 'https://backboard.railway.app/graphql/v2';
+const RAILWAY_TOKEN = process.env.RAILWAY_TOKEN || '';
+const RAILWAY_SERVICE_ID = process.env.RAILWAY_SERVICE_ID || '';
+const RAILWAY_ENV_ID = process.env.RAILWAY_ENV_ID || '';
+const GH_WEBHOOK_SECRET = process.env.GH_WEBHOOK_SECRET || '';
+
+app.post('/railway/deploy', (req, res) => {
+  // بررسی امضای وب‌هوک گیت‌هاب
+  const sig = req.headers['x-hub-signature-256'];
+  if (GH_WEBHOOK_SECRET) {
+    if (!sig || !req.rawBody) return res.status(401).json({ error: 'missing signature' });
+    const computed = 'sha256=' + crypto.createHmac('sha256', GH_WEBHOOK_SECRET).update(req.rawBody).digest('hex');
+    if (computed !== sig) return res.status(401).json({ error: 'bad signature' });
+  }
+  const event = req.headers['x-github-event'] || '';
+  if (event !== 'push') return res.status(200).json({ ok: true, ignored: event });
+  const sha = req.body && req.body.head_commit ? req.body.head_commit.id : null;
+  const ref = req.body && req.body.ref;
+  if (!sha || (ref && !ref.endsWith('/main'))) return res.status(200).json({ ok: true, ignored: 'non-main push' });
+  if (!RAILWAY_TOKEN || !RAILWAY_SERVICE_ID || !RAILWAY_ENV_ID) {
+    console.warn('[deploy-webhook] Railway env not configured');
+    return res.status(500).json({ error: 'railway not configured' });
+  }
+  const query = `mutation { serviceInstanceDeployV2(serviceId: "${RAILWAY_SERVICE_ID}", environmentId: "${RAILWAY_ENV_ID}", commitSha: "${sha}") }`;
+  fetch(RAILWAY_API, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + RAILWAY_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      console.log('[deploy-webhook] triggered deploy for', sha.slice(0, 8), JSON.stringify(data).slice(0, 160));
+      res.json({ ok: true, sha, result: data.data && data.data.serviceInstanceDeployV2 });
+    })
+    .catch(err => {
+      console.error('[deploy-webhook] error:', err.message);
+      res.status(502).json({ error: err.message });
+    });
+});
 
 // ---------- rooms ----------
 const rooms = new Map(); // code -> Room
