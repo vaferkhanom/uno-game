@@ -373,6 +373,24 @@ setInterval(() => {
 // ---------- telegram bot (long polling) ----------
 const TG_API = 'https://api.telegram.org/bot' + BOT_TOKEN;
 let botOffset = 0;
+try { botOffset = parseInt(process.env.BOT_OFFSET || '0', 10) || 0; } catch (e) {}
+const BOT_OFFSET_FILE = process.env.BOT_OFFSET_FILE || '/tmp/uno-bot-offset';
+
+async function loadBotOffset() {
+  try {
+    const fs = require('fs');
+    if (fs.existsSync(BOT_OFFSET_FILE)) {
+      const v = parseInt(fs.readFileSync(BOT_OFFSET_FILE, 'utf8'), 10);
+      if (Number.isFinite(v) && v > 0) botOffset = v;
+    }
+  } catch (e) {}
+}
+async function saveBotOffset() {
+  try {
+    const fs = require('fs');
+    fs.writeFileSync(BOT_OFFSET_FILE, String(botOffset));
+  } catch (e) {}
+}
 
 async function tgCall(method, body) {
   const res = await fetch(TG_API + '/' + method, {
@@ -385,13 +403,17 @@ async function tgCall(method, body) {
 
 async function botLoop() {
   if (!BOT_TOKEN) return;
+  await loadBotOffset();
+  console.log(`[bot] starting long-polling, offset=${botOffset}`);
   while (true) {
     try {
       const res = await tgCall('getUpdates', { offset: botOffset, timeout: 10, allowed_updates: ['message'] });
       if (res.ok) {
         for (const upd of res.result) {
           botOffset = upd.update_id + 1;
-          handleBotUpdate(upd);
+          saveBotOffset();
+          try { await handleBotUpdate(upd); }
+          catch (e) { console.error('[bot] handler error:', e.message); }
         }
       } else {
         console.error('[bot] getUpdates error:', JSON.stringify(res).slice(0, 300));
@@ -408,113 +430,370 @@ function handleBotUpdate(upd) {
   const msg = upd.message;
   if (!msg || !msg.text) return;
   const chatId = msg.chat.id;
-  const text = msg.text.trim();
+  const rawText = msg.text;
+  const text = rawText.trim();
   const fromUser = msg.from;
-  console.log(`[bot] message from ${fromUser.username || fromUser.first_name}: ${text}`);
+  const userKey = String(fromUser.id);
+  console.log(`[bot] message from ${fromUser.username || fromUser.first_name} (${userKey}): ${text}`);
 
-  if (text.startsWith('/start')) {
-    // ممکن است /start <code> برای پیوستن به اتاق از طریق ربات باشد
-    const parts = text.split(/\s+/);
-    if (parts.length >= 2) {
-      const code = parts[1].toUpperCase();
-      return handleJoinViaBot(chatId, fromUser, code);
-    }
-    return showMainMenu(chatId);
+  // --- استخراج دستور (command) ---
+  let cmd = null, args = [];
+  if (text.startsWith('/')) {
+    const m = text.match(/^\/([a-zA-Z0-9_]+)(?:@[a-zA-Z0-9_]+)?\s*([\s\S]*)$/);
+    if (m) { cmd = m[1].toLowerCase(); args = m[2].trim().split(/\s+/).filter(Boolean); }
   }
-  if (text === '/help') return showMainMenu(chatId);
-  if (text === '🎮 بازی یونو' || text === '/play' || text === 'ساخت اتاق') {
-    return handleCreateViaBot(chatId, fromUser);
+
+  // --- مسیریابی ---
+  switch (cmd) {
+    case 'start':   return cmdStart(chatId, fromUser, args);
+    case 'help':    return cmdHelp(chatId);
+    case 'play':
+    case 'new':
+    case 'create':
+    case 'newgame': return cmdPlay(chatId, fromUser);
+    case 'join':
+    case 'enter':   return cmdJoin(chatId, fromUser, args);
+    case 'room':
+    case 'code':
+    case 'mycode':
+    case 'myr':     return cmdMyCode(chatId, userKey);
+    case 'list':
+    case 'rooms':
+    case 'myrooms': return cmdMyRooms(chatId, userKey);
+    case 'leave':
+    case 'exit':
+    case 'quit':    return cmdLeave(chatId, userKey);
+    case 'rules':
+    case 'قوانین':  return cmdRules(chatId);
+    case 'stats':
+    case 'profile':
+    case 'me':      return cmdStats(chatId, userKey);
+    case 'invite':
+    case 'share':   return cmdInvite(chatId, userKey);
   }
-  if (text.startsWith('/play')) {
-    return handleCreateViaBot(chatId, fromUser);
-  }
-  if (text.startsWith('/join') || text.startsWith('/room')) {
-    const parts = text.split(/\s+/);
-    if (parts.length >= 2) return handleJoinViaBot(chatId, fromUser, parts[1].toUpperCase());
-    return tgCall('sendMessage', { chat_id: chatId, text: 'برای پیوستن، کد اتاق را بعد از دستور وارد کنید.\nمثال: <code>/join ABCDE</code>', parse_mode: 'HTML' }).catch(() => {});
-  }
-  // پیام‌های متنی که فقط ۵ حرف لاتین دارند → تلاش برای پیوستن
-  if (/^[A-Z0-9]{4,6}$/i.test(text) && !text.startsWith('/')) {
-    return handleJoinViaBot(chatId, fromUser, text.toUpperCase());
-  }
-  // پیش‌فرض: منوی اصلی
-  showMainMenu(chatId);
+
+  // --- دکمه‌های کیبورد ---
+  if (text === '🎮 ساخت اتاق جدید' || text === 'ساخت اتاق' || text === '🎮 بازی یونو') return cmdPlay(chatId, fromUser);
+  if (text === '🔑 پیوستن با کد' || text === 'پیوستن') return cmdJoinPrompt(chatId);
+  if (text === '📜 قوانین') return cmdRules(chatId);
+  if (text === '📊 آمار من') return cmdStats(chatId, userKey);
+  if (text === '🏠 اتاق من') return cmdMyCode(chatId, userKey);
+  if (text === '🚪 ترک اتاق') return cmdLeave(chatId, userKey);
+
+  // --- پیام متنی که فقط کد ۴ تا ۶ کاراکتری لاتین است → پیوستن ---
+  if (/^[A-Za-z0-9]{4,6}$/.test(text)) return cmdJoin(chatId, fromUser, [text.toUpperCase()]);
+
+  // --- هر چیز دیگری: راهنمای مختصر (نه فقط منو) ---
+  return cmdUnknown(chatId, text);
 }
 
-function showMainMenu(chatId) {
-  return tgCall('sendMessage', {
-    chat_id: chatId,
-    text:
-      '🎲 <b>به یونو آنلاین خوش آمدید!</b>\n\n' +
-      'برای شروع یکی از گزینه‌های زیر را انتخاب کنید:\n\n' +
-      '• 🎮 <b>ساخت اتاق جدید</b> ← یک کد ۵ حرفی می‌گیرید و آن را برای دوستانتان می‌فرستید\n' +
-      '• 🔑 <b>پیوستن با کد</b> ← کد اتاق دوستتان را وارد کنید\n\n' +
-      '<i>بعد از ساخت اتاق، روی دکمهٔ «باز کردن اتاق» بزنید تا بازی شروع شود.</i>',
-    parse_mode: 'HTML',
+// =================================================================
+// دستورات ربات
+// =================================================================
+
+async function cmdStart(chatId, fromUser, args) {
+  if (args && args[0] && /^[A-Za-z0-9]{4,6}$/.test(args[0])) {
+    return cmdJoin(chatId, fromUser, [args[0].toUpperCase()]);
+  }
+  const firstName = escapeHtml(fromUser.first_name || 'دوست من');
+  const text =
+    `👋 سلام <b>${firstName}</b>!\n\n` +
+    `🎲 به ربات <b>یونو آنلاین</b> خوش آمدی.\n` +
+    `اینجا می‌تونی با دوستانت یونوی آنلاین بازی کنی.\n\n` +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `📖 <b>راهنمای کامل دستورات:</b>\n━━━━━━━━━━━━━━━━━━\n\n` +
+    `🎮 <b>ساخت اتاق</b>\n` +
+    `<code>/play</code>  یا  <code>/new</code>\n` +
+    `→ یک اتاق می‌سازد و کد ۵ حرفی آن را بهت می‌دهد.\n\n` +
+    `🔑 <b>پیوستن به اتاق</b>\n` +
+    `<code>/join ABCDE</code>\n` +
+    `→ کد اتاق دوستت را وارد کن تا به او ملحق شوی.\n` +
+    `→ یا فقط کد را بفرست: <code>ABCDE</code>\n\n` +
+    `🏠 <b>کد اتاق فعلی من</b>\n` +
+    `<code>/room</code>  یا  <code>/code</code>\n` +
+    `→ اگر الان در اتاقی هستی، کدش را نشانت می‌دهد.\n\n` +
+    `📋 <b>لیست اتاق‌های فعال من</b>\n` +
+    `<code>/list</code>  یا  <code>/myrooms</code>\n` +
+    `→ همهٔ اتاق‌هایی که الان در آنها هستی.\n\n` +
+    `🚪 <b>ترک اتاق</b>\n` +
+    `<code>/leave</code>\n` +
+    `→ از اتاق فعلی‌ات خارج می‌شوی.\n\n` +
+    `📤 <b>دعوت دوستان</b>\n` +
+    `<code>/invite</code>\n` +
+    `→ یک لینک دعوت‌نامه برای اتاق فعلی‌ات می‌سازد.\n\n` +
+    `📜 <b>قوانین بازی</b>\n` +
+    `<code>/rules</code>\n` +
+    `→ خلاصه‌ای از قوانین یونو.\n\n` +
+    `📊 <b>آمار من</b>\n` +
+    `<code>/stats</code>\n` +
+    `→ اطلاعات حساب شما.\n\n` +
+    `❓ <b>راهنما</b>\n` +
+    `<code>/help</code>\n` +
+    `→ همین پیام را دوباره نشانت می‌دهد.\n\n` +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `💡 <b>شروع سریع:</b> اول بزن <code>/play</code> تا یک اتاق بسازی، بعد کدش رو برای دوستت بفرست.`;
+  await tgCall('sendMessage', {
+    chat_id: chatId, text, parse_mode: 'HTML',
     reply_markup: {
       keyboard: [
-        [{ text: '🎮 ساخت اتاق جدید' }],
-        [{ text: '🔑 پیوستن با کد' }],
+        [{ text: '🎮 ساخت اتاق جدید' }, { text: '🔑 پیوستن با کد' }],
+        [{ text: '🏠 اتاق من' }, { text: '🚪 ترک اتاق' }],
+        [{ text: '📜 قوانین' }, { text: '📊 آمار من' }],
       ],
       resize_keyboard: true,
     },
-  }).catch(e => console.error('[bot] send error:', e.message));
+  }).catch(e => console.error('[bot] /start send error:', e.message));
 }
 
-async function handleCreateViaBot(chatId, fromUser) {
-  // ربات اتاق را مستقیماً نمی‌سازد چون باید با حساب واقعی کاربر ساخته شود
-  // تا سایر بازیکنان بتوانند او را به‌عنوان میزبان بشناسند
-  const webAppLink = `https://t.me/${BOT_USERNAME}?startapp=create`;
+async function cmdHelp(chatId) { return cmdStart(chatId, { first_name: 'دوست من' }, []); }
+
+async function cmdPlay(chatId, fromUser) {
+  const user = tgUserToRoomUser(fromUser);
+  const room = createRoom(user);
+  console.log(`[bot] /play: created room ${room.code} for ${user.id}`);
+  const link = `https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
+  const text =
+    `✅ <b>اتاق ساخته شد!</b>\n\n` +
+    `🎯 کد اتاق شما:  <code>${room.code}</code>\n\n` +
+    `👥 ظرفیت: ۲ تا ${MAX_PLAYERS} بازیکن\n` +
+    `📊 بازیکنان فعلی: ۱ نفر (خودتان)\n\n` +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `<b>گام بعدی:</b>\n` +
+    `۱. کد بالا را برای دوستانتان بفرستید.\n` +
+    `۲. یا دکمهٔ «باز کردن اتاق» را بزنید تا وارد بازی شوید.\n` +
+    `۳. وقتی حداقل ۲ بازیکن باشند، میزبان می‌تواند بازی را شروع کند.\n\n` +
+    `💡 دوستتان برای پیوستن در همین ربات می‌فرستد: <code>/join ${room.code}</code>`;
+  await tgCall('sendMessage', {
+    chat_id: chatId, text, parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎮 باز کردن اتاق', web_app: { url: link } }],
+        [{ text: '📤 اشتراک‌گذاری کد', switch_inline_query: room.code }],
+      ],
+    },
+  }).catch(e => console.error('[bot] /play send error:', e.message));
+}
+
+async function cmdJoinPrompt(chatId) {
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-      `🎮 <b>ساخت اتاق جدید</b>\n\n` +
-      `برای ساخت اتاق، روی دکمهٔ زیر بزنید. وقتی بازی باز شد، یک کد ۵ حرفی به شما نشان می‌دهد که می‌توانید آن را برای دوستانتان بفرستید.\n\n` +
-      `ظرفیت هر اتاق: ۲ تا ${MAX_PLAYERS} بازیکن`,
+      `🔑 <b>پیوستن به اتاق</b>\n\n` +
+      `کد ۵ حرفی اتاق را بفرست.\n` +
+      `مثال: <code>ABCDE</code>\n\n` +
+      `یا دستور کامل: <code>/join ABCDE</code>`,
     parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard: [[{ text: '🎮 ساخت اتاق و شروع', web_app: { url: webAppLink } }]],
-    },
-  }).catch(e => console.error('[bot] create error:', e.message));
-  console.log(`[bot] send create instruction to chat ${chatId}`);
+  }).catch(e => console.error('[bot] /join prompt error:', e.message));
 }
 
-async function handleJoinViaBot(chatId, fromUser, code) {
+async function cmdJoin(chatId, fromUser, args) {
+  if (!args || !args[0]) {
+    return tgCall('sendMessage', {
+      chat_id: chatId,
+      text: `⚠️ <b>کد اتاق را وارد نکردی!</b>\n\nنحوهٔ استفاده:\n<code>/join ABCDE</code>\n\nیا فقط کد را بفرست: <code>ABCDE</code>`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  const code = String(args[0]).toUpperCase().trim();
+  if (!/^[A-Z0-9]{4,6}$/.test(code)) {
+    return tgCall('sendMessage', {
+      chat_id: chatId,
+      text: `❌ کد «<code>${code}</code>» معتبر نیست. کد اتاق ۴ تا ۶ کاراکتر (حرف و عدد) است.\n\nمثال درست: <code>ABCDE</code>`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+  }
   const room = rooms.get(code);
   if (!room) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `❌ اتاقی با کد <code>${code}</code> پیدا نشد.\n\nممکن است منقضی شده باشد. از میزبان بخواهید اتاق جدیدی بسازد.`,
+      text: `❌ اتاقی با کد <code>${code}</code> پیدا نشد.\n\nممکن است:\n• منقضی شده باشد (اتاق‌ها ۶ ساعت بی‌استفاده می‌مانند)\n• کد را اشتباه وارد کرده باشی\n\nاز میزبان بخواه دوباره اتاق بسازد: <code>/play</code>`,
       parse_mode: 'HTML',
     }).catch(() => {});
   }
   if (room.state !== 'lobby') {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `⏳ اتاق <code>${room.code}</code> در حال بازی است.`,
+      text: `⏳ اتاق <code>${room.code}</code> در حال بازی است. صبر کن تا دست تمام شود.`,
       parse_mode: 'HTML',
     }).catch(() => {});
   }
   if (room.players.length >= MAX_PLAYERS) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `🚫 اتاق <code>${room.code}</code> پُر است.`,
+      text: `🚫 اتاق <code>${room.code}</code> پُر است (${room.players.length}/${MAX_PLAYERS}).`,
       parse_mode: 'HTML',
     }).catch(() => {});
   }
+  const user = tgUserToRoomUser(fromUser);
+  userRoom.set(user.id, room.code);
+  console.log(`[bot] /join: user ${user.id} queued for room ${room.code}`);
   const link = `https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
+  const hostName = room.players[0] ? escapeHtml(room.players[0].name) : '—';
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
       `🚪 <b>اتاق پیدا شد!</b>\n\n` +
       `🎯 کد: <code>${room.code}</code>\n` +
-      `👥 بازیکنان فعلی: ${room.players.length} از ${MAX_PLAYERS}\n\n` +
-      `روی دکمهٔ زیر بزنید تا وارد اتاق شوید:`,
+      `👥 بازیکنان فعلی: ${room.players.length} از ${MAX_PLAYERS}\n` +
+      `👑 میزبان: ${hostName}\n\n` +
+      `برای ورود روی دکمهٔ زیر بزن:`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [[{ text: '🎮 پیوستن به اتاق', web_app: { url: link } }]],
     },
-  }).catch(e => console.error('[bot] join error:', e.message));
+  }).catch(e => console.error('[bot] /join send error:', e.message));
+}
+
+async function cmdMyCode(chatId, userKey) {
+  const code = userRoom.get(userKey);
+  if (!code) {
+    return tgCall('sendMessage', {
+      chat_id: chatId,
+      text: `ℹ️ الان در هیچ اتاقی نیستی.\n\nبرای ساخت اتاق: <code>/play</code>\nبرای پیوستن: <code>/join ABCDE</code>`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  const room = rooms.get(code);
+  if (!room) {
+    userRoom.delete(userKey);
+    return tgCall('sendMessage', {
+      chat_id: chatId,
+      text: `ℹ️ اتاق قبلی‌ات منقضی شده. <code>/play</code> برای ساخت اتاق جدید.`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  const link = `https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
+  const status = room.state === 'lobby' ? '🟢 منتظر بازیکن' : room.state === 'playing' ? '🔵 در حال بازی' : '🔴 پایان‌یافته';
+  const hostName = room.players[0] ? escapeHtml(room.players[0].name) : '—';
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+      `🏠 <b>اتاق فعلی شما</b>\n\n` +
+      `🎯 کد: <code>${room.code}</code>\n` +
+      `📊 وضعیت: ${status}\n` +
+      `👥 بازیکنان: ${room.players.length} از ${MAX_PLAYERS}\n` +
+      `👑 میزبان: ${hostName}\n\n` +
+      `👇 روی دکمهٔ زیر بزن تا وارد بازی شوی:`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [[{ text: '🎮 باز کردن اتاق', web_app: { url: link } }]],
+    },
+  }).catch(e => console.error('[bot] /room send error:', e.message));
+}
+
+async function cmdMyRooms(chatId, userKey) {
+  const inRoom = userRoom.get(userKey);
+  let lines;
+  if (inRoom && rooms.has(inRoom)) {
+    const r = rooms.get(inRoom);
+    lines = [`🏠 <code>${r.code}</code> — وضعیت: ${r.state} — ${r.players.length}/${MAX_PLAYERS} بازیکن`];
+  } else {
+    if (inRoom) userRoom.delete(userKey);
+    lines = ['(الان در هیچ اتاقی نیستی)'];
+  }
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text: `📋 <b>اتاق‌های فعال شما</b>\n\n${lines.join('\n')}\n\n💡 با <code>/play</code> اتاق جدید بساز یا <code>/join ABCDE</code> به اتاق دوستت بپیوند.`,
+    parse_mode: 'HTML',
+  }).catch(() => {});
+}
+
+async function cmdLeave(chatId, userKey) {
+  const code = userRoom.get(userKey);
+  if (!code) {
+    return tgCall('sendMessage', {
+      chat_id: chatId, text: 'ℹ️ الان در هیچ اتاقی نیستی.', parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  const room = rooms.get(code);
+  if (room) {
+    room.removePlayer(userKey);
+    broadcastRoom(room);
+  }
+  userRoom.delete(userKey);
+  await tgCall('sendMessage', {
+    chat_id: chatId, text: `✅ از اتاق <code>${code}</code> خارج شدی.`, parse_mode: 'HTML',
+  }).catch(() => {});
+}
+
+async function cmdInvite(chatId, userKey) {
+  const code = userRoom.get(userKey);
+  if (!code || !rooms.has(code)) {
+    return tgCall('sendMessage', {
+      chat_id: chatId, text: 'ℹ️ اول باید یک اتاق بسازی: <code>/play</code>', parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  const link = `https://t.me/${BOT_USERNAME}?startapp=${code}`;
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text: `📤 <b>دعوت دوستان به اتاق</b>\n\n🎯 کد: <code>${code}</code>\n\n🔗 <b>لینک دعوت:</b>\n${link}\n\nاین لینک را برای دوستانت بفرست. وقتی باز کنند، مستقیماً وارد اتاق تو می‌شوند.`,
+    parse_mode: 'HTML',
+  }).catch(() => {});
+}
+
+async function cmdRules(chatId) {
+  const text =
+    `📜 <b>قوانین یونو</b>\n\n` +
+    `🎯 <b>هدف:</b> اولین نفری که همهٔ کارت‌هایش را بازی کند.\n\n` +
+    `▶️ <b>نوبت:</b> کارتی بازی کن که هم‌رنگ، هم‌عدد یا هم‌نماد کارت روی میز باشد. اگر نداشتی، یک کارت بردار.\n\n` +
+    `⛔ <b>رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.\n` +
+    `🔄 <b>معکوس (Reverse):</b> جهت بازی برعکس می‌شود.\n` +
+    `🃏 <b>+۲ (Draw Two):</b> بازیکن بعدی ۲ کارت برمی‌دارد و نوبتش رد می‌شود.\n` +
+    `🌈 <b>وایلد (Wild):</b> رنگ دلخواه انتخاب می‌کنی.\n` +
+    `😱 <b>وایلد +۴:</b> رنگ انتخاب می‌کنی و بازیکن بعدی ۴ کارت جریمه می‌گیرد.\n\n` +
+    `📢 <b>یونو!</b> وقتی یک کارت برایت مانده، دکمهٔ «یونو!» را بزن. اگر کسی قبل از نوبت بعدی متوجه شود و «بگیرش» بزند، ۲ کارت جریمه می‌گیری!\n\n` +
+    `🏆 <b>امتیاز:</b> برنده، امتیاز کارت‌های دیگران را می‌گیرد (عددی = خودش، ویژه = ۲۰، وایلد = ۵۰).`;
+  await tgCall('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' }).catch(() => {});
+}
+
+async function cmdStats(chatId, userKey) {
+  const code = userRoom.get(userKey);
+  const inRoom = code && rooms.has(code);
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+      `📊 <b>آمار شما</b>\n\n` +
+      `👤 شناسه: <code>${userKey}</code>\n` +
+      `🏠 اتاق فعلی: ${inRoom ? '<code>' + code + '</code>' : '—'}\n` +
+      `📈 تعداد بازی‌ها: (به‌زودی)\n` +
+      `🏆 بردها: (به‌زودی)\n` +
+      `⭐ مجموع امتیاز: (به‌زودی)\n\n` +
+      `💡 برای شروع بازی: <code>/play</code>`,
+    parse_mode: 'HTML',
+  }).catch(() => {});
+}
+
+async function cmdUnknown(chatId, text) {
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+      `🤔 پیام «<i>${escapeHtml(text.slice(0, 60))}</i>» را نفهمیدم.\n\n` +
+      `📌 <b>دستورهای موجود:</b>\n` +
+      `<code>/play</code> — ساخت اتاق جدید\n` +
+      `<code>/join ABCDE</code> — پیوستن به اتاق\n` +
+      `<code>/room</code> — کد اتاق فعلی من\n` +
+      `<code>/list</code> — لیست اتاق‌های فعال\n` +
+      `<code>/leave</code> — ترک اتاق\n` +
+      `<code>/invite</code> — لینک دعوت\n` +
+      `<code>/rules</code> — قوانین بازی\n` +
+      `<code>/stats</code> — آمار من\n` +
+      `<code>/help</code> — راهنمای کامل\n\n` +
+      `یا از کیبورد پایین یکی از گزینه‌ها را انتخاب کن.`,
+    parse_mode: 'HTML',
+  }).catch(() => {});
+}
+
+function tgUserToRoomUser(tgUser) {
+  return {
+    id: String(tgUser.id), // همان شناسه‌ای که initData در Mini App می‌فرستد
+    first_name: tgUser.first_name || 'بازیکن',
+    username: tgUser.username || null,
+    photo_url: tgUser.photo_url || null,
+  };
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 const WEBAPP_URL = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : 'http://localhost:' + PORT);

@@ -1,3 +1,8 @@
 node_modules/
 .env
 *.log
+server-test-loaded.js
+_test-server*.js
+test-bot*.js
+server-test.js
+server-intercept.js
