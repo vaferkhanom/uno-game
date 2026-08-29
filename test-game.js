@@ -108,10 +108,14 @@ async function main() {
   // test back to lobby + restart
   a.sock.emit('backToLobby');
   await sleep(300);
-  console.log('[back to lobby]', a.state.state);
+  console.log('[back to lobby]', a.state.state, 'hands:', a.state.players.map(p => p.handCount));
   a.sock.emit('startGame');
   await sleep(400);
   console.log('[restart]', a.state.state, 'hands:', a.state.players.map(p => p.handCount));
+  console.log('[log]', a.state.log.map(l => l.text).join(' | '));
+  await sleep(500);
+  console.log('[restart+500ms]', a.state.state, 'hands:', a.state.players.map(p => p.handCount));
+  console.log('[log+500ms]', a.state.log.map(l => l.text).join(' | '));
   if (a.state.state === 'playing' && a.state.players.every(p => p.handCount === 7)) {
     console.log('✅ RESTART TEST PASSED');
   } else {

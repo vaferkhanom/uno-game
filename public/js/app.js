@@ -73,6 +73,7 @@
   let myRoomCode = null;
   let prevHandIds = null;     // برای انیمیشن پخش کارت
   let joinedOnce = false;
+  let fetchingRoom = false;
 
   function connect() {
     socket = io({ auth: { initData: (tg && tg.initData) || '' } });
@@ -100,14 +101,19 @@
 
     socket.on('state', (s) => {
       const first = !state;
-      const prevScreen = document.querySelector('.screen.active');
       state = s;
-      if (s.state === 'playing' || s.state === 'ended') {
+      if ((s.state === 'playing' || s.state === 'ended') && s.viewer) {
         renderGame(s, first);
         showScreen('game');
       } else {
-        renderLobby(s);
-        showScreen('lobby');
+        hideWinner();
+        if (s.viewer) { renderLobby(s); showScreen('lobby'); }
+        else if (!fetchingRoom) {
+          // اگر به هر دلیلی بیرون از اتاق بودیم، اتاق اختصاصی را بگیر
+          fetchingRoom = true;
+          showScreen('home');
+          socket.emit('getPersonalRoom', () => { setTimeout(() => { fetchingRoom = false; }, 2000); });
+        }
       }
       // پروفایل
       $('homeName').textContent = (me && me.first_name) || s.viewerName || 'بازیکن';
