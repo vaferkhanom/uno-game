@@ -354,7 +354,7 @@ async function botLoop() {
   if (!BOT_TOKEN) return;
   while (true) {
     try {
-      const res = await tgCall('getUpdates', { offset: botOffset, timeout: 30, allowed_updates: ['message'] });
+      const res = await tgCall('getUpdates', { offset: botOffset, timeout: 10, allowed_updates: ['message'] });
       if (res.ok) {
         for (const upd of res.result) {
           botOffset = upd.update_id + 1;

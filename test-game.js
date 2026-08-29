@@ -3,7 +3,7 @@
  */
 const { io } = require('socket.io-client');
 
-const URL = 'http://localhost:3111';
+const URL = 'https://uno-game-production-c799.up.railway.app';
 let done = 0;
 
 function makeClient(name) {
@@ -12,6 +12,7 @@ function makeClient(name) {
   sock.on('state', s => { c.state = s; });
   sock.on('event', e => c.events.push(e));
   sock.on('connect', () => console.log(`[${name}] connected`));
+  sock.on('error_msg', e => console.log(`[${name}] error_msg:`, JSON.stringify(e)));
   return c;
 }
 
@@ -60,7 +61,7 @@ async function turnAction(c) {
 async function main() {
   const a = makeClient('A');
   const b = makeClient('B');
-  await sleep(500);
+  await sleep(1500);
 
   // A creates personal room
   a.sock.emit('getPersonalRoom', ({ code }) => {
@@ -68,9 +69,10 @@ async function main() {
     // B joins A's room
     setTimeout(() => b.sock.emit('joinRoom', { code }), 300);
   });
-  await sleep(900);
-
-  if (!b.state) { console.log('❌ B has no state'); process.exit(1); }
+  // wait until B has state (poll up to 8s)
+  let waited = 0;
+  while (!b.state && waited < 8000) { await sleep(200); waited += 200; }
+  if (!b.state) { console.log('❌ B has no state after 8s'); process.exit(1); }
   console.log('[lobby] players:', b.state.players.length, 'state:', b.state.state);
 
   // B tries to start (should fail - not host)
