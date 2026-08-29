@@ -1,4 +1,11 @@
 /* ===== یونو آنلاین — استایل اصلی ===== */
+@font-face { font-family: 'Vazirmatn'; src: url('/fonts/Vazirmatn-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Vazirmatn'; src: url('/fonts/Vazirmatn-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Vazirmatn'; src: url('/fonts/Vazirmatn-SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Vazirmatn'; src: url('/fonts/Vazirmatn-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Vazirmatn'; src: url('/fonts/Vazirmatn-ExtraBold.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Vazirmatn'; src: url('/fonts/Vazirmatn-Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
+
 :root {
   --bg-0: #070714;
   --bg-1: #0d0d24;
@@ -131,6 +138,30 @@ body { position: fixed; inset: 0; }
 .grad-text { background: linear-gradient(90deg, var(--primary), var(--accent), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero-sub { color: var(--text-dim); margin-top: 8px; font-size: 15px; }
 .home-actions { margin-bottom: 22px; }
+
+/* ===== کد اتاق اختصاصی در خانه ===== */
+.home-code {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(125,95,255,.18), rgba(255,71,87,.15));
+  border: 1.5px solid rgba(125,95,255,.45);
+  border-radius: 18px;
+  animation: codePulse 2.4s ease-in-out infinite;
+}
+@keyframes codePulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(125,95,255,.0); }
+  50%     { box-shadow: 0 0 0 6px rgba(125,95,255,.18); }
+}
+.home-code-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.home-code-label { font-size: 12px; color: var(--text-dim); font-weight: 700; }
+.home-code-value {
+  font-size: 28px; font-weight: 900; letter-spacing: 6px;
+  color: var(--gold); text-shadow: 0 0 18px rgba(255,211,42,.45);
+  font-family: 'Courier New', monospace; direction: ltr;
+  line-height: 1.1;
+}
+.home-code-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.home-code-btns .btn-icon { width: 40px; height: 40px; font-size: 18px; }
 .home-rules { padding: 18px 20px; }
 .home-rules h3 { font-size: 16px; font-weight: 900; margin-bottom: 10px; }
 .home-rules ul { list-style: none; }
@@ -154,12 +185,25 @@ body { position: fixed; inset: 0; }
 .badge.you { background: rgba(125,95,255,.25); color: #cabfff; }
 .lobby-footer { margin-top: 18px; }
 .lobby-hint { text-align: center; font-size: 13px; color: var(--text-dim); }
+.lobby-join { width: 100%; margin-top: 14px; padding: 11px; font-size: 14px; position: relative; z-index: 1; }
 
 
 /* ===== صفحه بازی ===== */
 #game { padding: 0; overflow: hidden; }
 
 /* حریف‌ها */
+.game-room-chip {
+  position: absolute; top: calc(10px + var(--sat)); left: 50%; transform: translateX(-50%);
+  z-index: 6; padding: 7px 14px; border-radius: 99px;
+  background: rgba(10,10,28,.78); border: 1.5px solid rgba(255,211,42,.55);
+  font-size: 13px; font-weight: 900; color: var(--gold);
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  box-shadow: 0 0 22px rgba(255,211,42,.25);
+  transition: transform .2s, box-shadow .2s;
+}
+.game-room-chip:active { transform: translateX(-50%) scale(.95); }
+.chip-code { letter-spacing: 4px; font-family: 'Courier New', monospace; }
+
 #opponents { position: absolute; top: calc(10px + var(--sat)); right: 0; left: 0; display: flex; justify-content: center; gap: 8px; padding: 0 10px; z-index: 5; flex-wrap: wrap; }
 .opp { display: flex; align-items: center; gap: 8px; padding: 7px 12px 7px 8px; border-radius: 99px;
   background: rgba(10,10,28,.72); border: 1px solid var(--glass-brd); backdrop-filter: blur(10px);

@@ -76,16 +76,22 @@
   let fetchingRoom = false;
 
   function connect() {
+    if (typeof io === 'undefined') {
+      $('splashError').hidden = false;
+      $('splashError').textContent = 'خطا در بارگذاری بازی. دوباره تلاش کنید.';
+      $('retryBtn').hidden = false;
+      return;
+    }
     socket = io({ auth: { initData: (tg && tg.initData) || '' } });
 
     socket.on('connect', () => {
+      $('splashError').hidden = true;
+      $('retryBtn').hidden = true;
       // اگر لینک دعوت دارد (startapp)
       const sp = tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param;
       if (sp && !joinedOnce) {
         socket.emit('joinRoom', { code: String(sp).toUpperCase() });
         joinedOnce = true;
-      } else if (!joinedOnce) {
-        socket.emit('getPersonalRoom');
       } else {
         socket.emit('getPersonalRoom');
       }
@@ -93,7 +99,11 @@
 
     socket.on('connect_error', (err) => {
       $('splashError').hidden = false;
-      $('splashError').textContent = 'خطای احراز هویت! لطفاً بازی را از داخل تلگرام باز کنید.';
+      $('retryBtn').hidden = false;
+      const isAuth = /unauthorized/i.test((err && err.message) || '');
+      $('splashError').textContent = isAuth
+        ? 'خطای احراز هویت! لطفاً بازی را از داخل تلگرام باز کنید.'
+        : 'اتصال برقرار نشد. اینترنت خود را بررسی کنید.';
       console.error('connect_error', err.message);
     });
 
@@ -105,14 +115,24 @@
       if ((s.state === 'playing' || s.state === 'ended') && s.viewer) {
         renderGame(s, first);
         showScreen('game');
+        if (s.code) { $('gameRoomCode').textContent = s.code; $('gameRoomChip').hidden = false; }
       } else {
         hideWinner();
-        if (s.viewer) { renderLobby(s); showScreen('lobby'); }
-        else if (!fetchingRoom) {
-          // اگر به هر دلیلی بیرون از اتاق بودیم، اتاق اختصاصی را بگیر
-          fetchingRoom = true;
+        if (s.viewer) { renderLobby(s); showScreen('lobby'); if (s.code) $('roomCode').textContent = s.code; }
+        else {
+          // در خانه: کد اتاق اختصاصی را در کارت خانه نشان بده
           showScreen('home');
-          socket.emit('getPersonalRoom', () => { setTimeout(() => { fetchingRoom = false; }, 2000); });
+          if (s.code) {
+            $('homeCodeVal').textContent = s.code;
+            $('homeCode').hidden = false;
+            myRoomCode = s.code;
+          } else {
+            // کد نداریم → درخواست اتاق اختصاصی بده
+            if (!fetchingRoom) {
+              fetchingRoom = true;
+              socket.emit('getPersonalRoom', () => { setTimeout(() => { fetchingRoom = false; }, 1500); });
+            }
+          }
         }
       }
       // پروفایل
@@ -475,7 +495,25 @@
   // ---------- اتصال دکمه‌ها ----------
   function wireUI() {
     // خانه
-    $('myRoomBtn').onclick = () => emit('getPersonalRoom');
+    $('myRoomBtn').onclick = () => {
+      if (myRoomCode) { emit('getPersonalRoom'); }
+      else { emit('getPersonalRoom'); }
+    };
+    $('homeCopyBtn').onclick = async () => {
+      const code = $('homeCodeVal').textContent.trim();
+      if (!code || code === '-----') return;
+      try { await navigator.clipboard.writeText(code); toast('کد کپی شد! 📋', 'good'); }
+      catch (e) { toast('کد: ' + code); }
+    };
+    $('homeShareBtn').onclick = () => {
+      const code = $('homeCodeVal').textContent.trim();
+      if (!code || code === '-----') return;
+      const inviter = (me && me.first_name) || 'دوستت';
+      const text = `🎲 ${inviter} تو را به بازی یونو دعوت کرد!\n\nکد اتاق: ${code}\n\nهمین حالا بپیوند! 🔥`;
+      const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink(code))}&text=${encodeURIComponent(text)}`;
+      if (tg && tg.openTelegramLink) tg.openTelegramLink(url);
+      else window.open(url, '_blank');
+    };
     $('helpBtn').onclick = () => { $('helpModal').hidden = false; };
     $('helpClose').onclick = () => { $('helpModal').hidden = true; };
 
@@ -494,6 +532,10 @@
     // لابی
     $('startGameBtn').onclick = () => emit('startGame');
     $('lobbyBack').onclick = () => showScreen('home');
+    $('lobbyJoinBtn').onclick = () => {
+      $('joinModal').hidden = false;
+      setTimeout(() => $('joinInput').focus(), 100);
+    };
     $('copyCodeBtn').onclick = async () => {
       const code = state ? state.code : myRoomCode;
       try {
@@ -520,6 +562,12 @@
     $('passBtn').onclick = () => emit('passTurn');
     $('unoBtn').onclick = () => emit('callUno');
     $('deckPile').onclick = () => { if (!$('drawBtn').disabled) emit('drawCard'); };
+    $('gameRoomChip').onclick = async () => {
+      const code = $('gameRoomCode').textContent.trim();
+      if (!code || code === '-----') return;
+      try { await navigator.clipboard.writeText(code); toast('کد اتاق کپی شد! 📋', 'good'); }
+      catch (e) { toast('کد: ' + code); }
+    };
 
     // انتخاب رنگ
     document.querySelectorAll('.color-pick').forEach(btn => {

@@ -6,9 +6,6 @@
   <meta name="theme-color" content="#0b0b1e">
   <title>🎲 یونو آنلاین</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23ff3b3b'/><text x='50' y='66' font-size='40' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>U</text></svg>">
 </head>
@@ -27,6 +24,7 @@
       <p class="splash-sub">در حال اتصال به سرور…</p>
       <div class="loader"><div class="loader-bar"></div></div>
       <p id="splashError" class="splash-error" hidden></p>
+      <button id="retryBtn" class="btn btn-primary" hidden style="margin-top:14px;padding:12px 26px;font-size:15px;">🔄 تلاش دوباره</button>
     </div>
   </div>
 
@@ -46,6 +44,17 @@
       <div class="hero-cards" id="heroCards"></div>
       <h1 class="hero-title">یونو <span class="grad-text">آنلاین</span></h1>
       <p class="hero-sub">اتاق اختصاصی خودت را بساز و دوستانت را دعوت کن!</p>
+    </div>
+
+    <div class="home-code card-glass" id="homeCode" hidden>
+      <div class="home-code-info">
+        <div class="home-code-label">کد اتاق من</div>
+        <div class="home-code-value" id="homeCodeVal">-----</div>
+      </div>
+      <div class="home-code-btns">
+        <button class="btn-icon" id="homeCopyBtn" title="کپی کد">📋</button>
+        <button class="btn-icon" id="homeShareBtn" title="دعوت دوستان">📤</button>
+      </div>
     </div>
 
     <div class="home-actions">
@@ -82,6 +91,7 @@
         <button class="btn btn-small btn-secondary" id="copyCodeBtn">📋 کپی کد</button>
         <button class="btn btn-small btn-secondary" id="shareBtn">📤 دعوت دوستان</button>
       </div>
+      <button class="btn btn-secondary btn-small lobby-join" id="lobbyJoinBtn">🔑 کد دوستت را وارد کن</button>
     </div>
 
     <div class="players-title">بازیکنان (<span id="playerCount">۱</span>/۶)</div>
@@ -96,6 +106,9 @@
   </div>
 
   <div id="game" class="screen">
+    <div class="game-room-chip" id="gameRoomChip" title="کپی کد اتاق">
+      <span class="chip-code" id="gameRoomCode">-----</span>
+    </div>
     <div id="opponents"></div>
 
     <div class="table-center">
@@ -181,7 +194,7 @@
 
   <div id="toastWrap"></div>
 
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/vendor/socket.io.min.js"></script>
   <script src="/js/cards.js"></script>
   <script src="/js/app.js"></script>
 </body>
