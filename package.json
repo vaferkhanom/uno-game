@@ -1,6 +1,6 @@
 {
   "name": "uno-game",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "بازی آنلاین یونو - Telegram Mini App",
   "main": "server.js",
   "type": "commonjs",
