@@ -90,11 +90,17 @@
       // اگر لینک دعوت دارد (startapp)
       const sp = tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param;
       if (sp && !joinedOnce) {
-        socket.emit('joinRoom', { code: String(sp).toUpperCase() });
         joinedOnce = true;
-      } else {
-        socket.emit('getPersonalRoom');
+        if (String(sp).toLowerCase() === 'create') {
+          // دستور ساخت اتاق از ربات
+          socket.emit('createRoom', ({ code }) => {
+            myRoomCode = code;
+          });
+        } else {
+          socket.emit('joinRoom', { code: String(sp).toUpperCase() });
+        }
       }
+      // بدون startapp → فقط به خانه می‌رویم، اتاق نمی‌سازیم
     });
 
     socket.on('connect_error', (err) => {
@@ -119,21 +125,7 @@
       } else {
         hideWinner();
         if (s.viewer) { renderLobby(s); showScreen('lobby'); if (s.code) $('roomCode').textContent = s.code; }
-        else {
-          // در خانه: کد اتاق اختصاصی را در کارت خانه نشان بده
-          showScreen('home');
-          if (s.code) {
-            $('homeCodeVal').textContent = s.code;
-            $('homeCode').hidden = false;
-            myRoomCode = s.code;
-          } else {
-            // کد نداریم → درخواست اتاق اختصاصی بده
-            if (!fetchingRoom) {
-              fetchingRoom = true;
-              socket.emit('getPersonalRoom', () => { setTimeout(() => { fetchingRoom = false; }, 1500); });
-            }
-          }
-        }
+        // بدون viewer → در خانه می‌مانیم
       }
       // پروفایل
       $('homeName').textContent = (me && me.first_name) || s.viewerName || 'بازیکن';
@@ -496,23 +488,11 @@
   function wireUI() {
     // خانه
     $('myRoomBtn').onclick = () => {
-      if (myRoomCode) { emit('getPersonalRoom'); }
-      else { emit('getPersonalRoom'); }
-    };
-    $('homeCopyBtn').onclick = async () => {
-      const code = $('homeCodeVal').textContent.trim();
-      if (!code || code === '-----') return;
-      try { await navigator.clipboard.writeText(code); toast('کد کپی شد! 📋', 'good'); }
-      catch (e) { toast('کد: ' + code); }
-    };
-    $('homeShareBtn').onclick = () => {
-      const code = $('homeCodeVal').textContent.trim();
-      if (!code || code === '-----') return;
-      const inviter = (me && me.first_name) || 'دوستت';
-      const text = `🎲 ${inviter} تو را به بازی یونو دعوت کرد!\n\nکد اتاق: ${code}\n\nهمین حالا بپیوند! 🔥`;
-      const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink(code))}&text=${encodeURIComponent(text)}`;
-      if (tg && tg.openTelegramLink) tg.openTelegramLink(url);
-      else window.open(url, '_blank');
+      // ساخت یک اتاق جدید (اگر قبلاً در اتاقی هستیم، از آن خارج می‌شویم)
+      SFX.play();
+      socket.emit('createRoom', ({ code }) => {
+        if (code) { myRoomCode = code; toast('اتاق ساخته شد! 🎉', 'good'); }
+      });
     };
     $('helpBtn').onclick = () => { $('helpModal').hidden = false; };
     $('helpClose').onclick = () => { $('helpModal').hidden = true; };

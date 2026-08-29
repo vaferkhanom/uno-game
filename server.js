@@ -22,6 +22,38 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/healthz', (req, res) => res.json({ ok: true, uptime: process.uptime(), rooms: rooms.size }));
 app.get('/api/config', (req, res) => res.json({ botUsername: BOT_USERNAME, maxPlayers: MAX_PLAYERS }));
 
+// ---------- REST API: room management ----------
+function authUser(req) {
+  const initData = req.body && req.body.initData;
+  return validateInitData(initData);
+}
+
+app.post('/api/rooms', (req, res) => {
+  const user = authUser(req);
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  const room = createRoom(user);
+  console.log(`[api] user ${user.id} created room ${room.code}`);
+  res.json({ code: room.code, webAppUrl: WEBAPP_URL + '?startapp=' + room.code });
+});
+
+app.get('/api/rooms/:code', (req, res) => {
+  const code = String(req.params.code || '').trim().toUpperCase();
+  const summary = roomSummary(code);
+  if (!summary) return res.status(404).json({ error: 'not_found' });
+  res.json(summary);
+});
+
+app.post('/api/rooms/:code/join', (req, res) => {
+  const user = authUser(req);
+  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  const code = String(req.params.code || '').trim().toUpperCase();
+  const room = findRoomByCode(code);
+  if (!room) return res.status(404).json({ error: 'not_found' });
+  if (room.state !== 'lobby') return res.status(409).json({ error: 'game_in_progress' });
+  if (room.players.length >= MAX_PLAYERS) return res.status(409).json({ error: 'room_full' });
+  res.json({ code: room.code, webAppUrl: WEBAPP_URL + '?startapp=' + room.code });
+});
+
 // ---------- GitHub push webhook → خودکار deploy روی Railway ----------
 const RAILWAY_API = 'https://backboard.railway.app/graphql/v2';
 const RAILWAY_TOKEN = process.env.RAILWAY_TOKEN || '';
@@ -66,30 +98,33 @@ app.post('/railway/deploy', (req, res) => {
 // ---------- rooms ----------
 const rooms = new Map(); // code -> Room
 const userRoom = new Map(); // userId -> room code (current room)
-const personalRoom = new Map(); // userId -> personal room code
 
-function getOrCreatePersonalRoom(user) {
+function createRoom(user) {
   const uid = String(user.id);
-  let code = personalRoom.get(uid);
-  let room = code ? rooms.get(code) : null;
-  if (room && room.state === 'lobby' && room.isHost(uid)) return room;
-  // create fresh personal room
-  code = generateUniqueCode();
-  room = new Room(code, user);
-  rooms.set(code, room);
-  personalRoom.set(uid, code);
-  return room;
-}
-
-function generateUniqueCode() {
   let code;
   do { code = generateRoomCode(); } while (rooms.has(code));
-  return code;
+  const room = new Room(code, user);
+  rooms.set(code, room);
+  userRoom.set(uid, code);
+  return room;
 }
 
 function findRoomByCode(code) {
   if (!code) return null;
   return rooms.get(String(code).trim().toUpperCase()) || null;
+}
+
+function roomSummary(code) {
+  const room = rooms.get(code);
+  if (!room) return null;
+  return {
+    code: room.code,
+    state: room.state,
+    hostId: room.hostId,
+    playerCount: room.players.length,
+    maxPlayers: MAX_PLAYERS,
+    canJoin: room.state === 'lobby' && room.players.length < MAX_PLAYERS,
+  };
 }
 
 // cleanup idle rooms every 10 minutes
@@ -200,26 +235,29 @@ io.on('connection', (socket) => {
     broadcastRoom(room);
   }
 
-  socket.on('getPersonalRoom', (cb) => {
-    let code = userRoom.get(userId);
-    let room = code ? rooms.get(code) : null;
-    if (!room) {
-      room = getOrCreatePersonalRoom(user);
-      room.addPlayer(user);
-      code = room.code;
-      userRoom.set(userId, code);
-      socket.join('room:' + code);
-    }
-    socket.emit('joined', { code });
+  // create a brand-new personal room (hosted by this user)
+  socket.on('createRoom', (cb) => {
+    // remove user from any existing room
+    leaveCurrentRoom(socket);
+    const room = createRoom(user);
+    socket.join('room:' + room.code);
+    socket.emit('joined', { code: room.code });
     broadcastRoom(room);
-    if (typeof cb === 'function') cb({ code });
+    if (typeof cb === 'function') cb({ code: room.code });
   });
-
 
   socket.on('joinRoom', ({ code }) => {
     const room = findRoomByCode(code);
     if (!room) {
       socket.emit('error_msg', { message: 'اتاقی با این کد پیدا نشد.' });
+      return;
+    }
+    if (room.state !== 'lobby') {
+      socket.emit('error_msg', { message: 'بازی این اتاق شروع شده است.' });
+      return;
+    }
+    if (room.players.length >= MAX_PLAYERS) {
+      socket.emit('error_msg', { message: 'ظرفیت اتاق تکمیل است.' });
       return;
     }
     leaveCurrentRoom(socket);
@@ -236,12 +274,7 @@ io.on('connection', (socket) => {
 
   socket.on('leaveRoom', () => {
     leaveCurrentRoom(socket);
-    const room = getOrCreatePersonalRoom(user);
-    userRoom.set(userId, room.code);
-    room.addPlayer(user);
-    socket.join('room:' + room.code);
-    socket.emit('joined', { code: room.code });
-    broadcastRoom(room);
+    socket.emit('left', {});
   });
 
   socket.on('startGame', () => handleAction(socket, (room, uid) => {
@@ -376,27 +409,112 @@ function handleBotUpdate(upd) {
   if (!msg || !msg.text) return;
   const chatId = msg.chat.id;
   const text = msg.text.trim();
-  console.log(`[bot] message from ${msg.from.username || msg.from.first_name}: ${text}`);
+  const fromUser = msg.from;
+  console.log(`[bot] message from ${fromUser.username || fromUser.first_name}: ${text}`);
 
-  if (text.startsWith('/start') || text.startsWith('/help') || text === '🎮 بازی یونو') {
-    tgCall('sendMessage', {
-      chat_id: chatId,
-      text: '🎲 <b>به یونو خوش آمدید!</b>\n\nیونو آنلاین را با دوستانتان بازی کنید.\n\n• روی دکمهٔ زیر بزنید تا بازی باز شود\n• اتاق اختصاصی خودتان ساخته می‌شود\n• با کد اتاق یا لینک دعوت، دوستانتان را وارد کنید\n• ۲ تا ۶ نفر می‌توانند بازی کنند',
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [[{ text: '🎮 شروع بازی', web_app: { url: WEBAPP_URL } }]],
-      },
-    }).catch(e => console.error('[bot] send error:', e.message));
-  } else if (text.startsWith('/room')) {
-    const code = text.split(/\s+/)[1];
-    if (code) {
-      tgCall('sendMessage', {
-        chat_id: chatId,
-        text: `🚪 کد اتاق: <b>${code.toUpperCase()}</b>\n\nدر بازی، از بخش «پیوستن به اتاق» این کد را وارد کنید.`,
-        parse_mode: 'HTML',
-      }).catch(() => {});
+  if (text.startsWith('/start')) {
+    // ممکن است /start <code> برای پیوستن به اتاق از طریق ربات باشد
+    const parts = text.split(/\s+/);
+    if (parts.length >= 2) {
+      const code = parts[1].toUpperCase();
+      return handleJoinViaBot(chatId, fromUser, code);
     }
+    return showMainMenu(chatId);
   }
+  if (text === '/help') return showMainMenu(chatId);
+  if (text === '🎮 بازی یونو' || text === '/play' || text === 'ساخت اتاق') {
+    return handleCreateViaBot(chatId, fromUser);
+  }
+  if (text.startsWith('/play')) {
+    return handleCreateViaBot(chatId, fromUser);
+  }
+  if (text.startsWith('/join') || text.startsWith('/room')) {
+    const parts = text.split(/\s+/);
+    if (parts.length >= 2) return handleJoinViaBot(chatId, fromUser, parts[1].toUpperCase());
+    return tgCall('sendMessage', { chat_id: chatId, text: 'برای پیوستن، کد اتاق را بعد از دستور وارد کنید.\nمثال: <code>/join ABCDE</code>', parse_mode: 'HTML' }).catch(() => {});
+  }
+  // پیام‌های متنی که فقط ۵ حرف لاتین دارند → تلاش برای پیوستن
+  if (/^[A-Z0-9]{4,6}$/i.test(text) && !text.startsWith('/')) {
+    return handleJoinViaBot(chatId, fromUser, text.toUpperCase());
+  }
+  // پیش‌فرض: منوی اصلی
+  showMainMenu(chatId);
+}
+
+function showMainMenu(chatId) {
+  return tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+      '🎲 <b>به یونو آنلاین خوش آمدید!</b>\n\n' +
+      'برای شروع یکی از گزینه‌های زیر را انتخاب کنید:\n\n' +
+      '• 🎮 <b>ساخت اتاق جدید</b> ← یک کد ۵ حرفی می‌گیرید و آن را برای دوستانتان می‌فرستید\n' +
+      '• 🔑 <b>پیوستن با کد</b> ← کد اتاق دوستتان را وارد کنید\n\n' +
+      '<i>بعد از ساخت اتاق، روی دکمهٔ «باز کردن اتاق» بزنید تا بازی شروع شود.</i>',
+    parse_mode: 'HTML',
+    reply_markup: {
+      keyboard: [
+        [{ text: '🎮 ساخت اتاق جدید' }],
+        [{ text: '🔑 پیوستن با کد' }],
+      ],
+      resize_keyboard: true,
+    },
+  }).catch(e => console.error('[bot] send error:', e.message));
+}
+
+async function handleCreateViaBot(chatId, fromUser) {
+  // ربات اتاق را مستقیماً نمی‌سازد چون باید با حساب واقعی کاربر ساخته شود
+  // تا سایر بازیکنان بتوانند او را به‌عنوان میزبان بشناسند
+  const webAppLink = `https://t.me/${BOT_USERNAME}?startapp=create`;
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+      `🎮 <b>ساخت اتاق جدید</b>\n\n` +
+      `برای ساخت اتاق، روی دکمهٔ زیر بزنید. وقتی بازی باز شد، یک کد ۵ حرفی به شما نشان می‌دهد که می‌توانید آن را برای دوستانتان بفرستید.\n\n` +
+      `ظرفیت هر اتاق: ۲ تا ${MAX_PLAYERS} بازیکن`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [[{ text: '🎮 ساخت اتاق و شروع', web_app: { url: webAppLink } }]],
+    },
+  }).catch(e => console.error('[bot] create error:', e.message));
+  console.log(`[bot] send create instruction to chat ${chatId}`);
+}
+
+async function handleJoinViaBot(chatId, fromUser, code) {
+  const room = rooms.get(code);
+  if (!room) {
+    return tgCall('sendMessage', {
+      chat_id: chatId,
+      text: `❌ اتاقی با کد <code>${code}</code> پیدا نشد.\n\nممکن است منقضی شده باشد. از میزبان بخواهید اتاق جدیدی بسازد.`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  if (room.state !== 'lobby') {
+    return tgCall('sendMessage', {
+      chat_id: chatId,
+      text: `⏳ اتاق <code>${room.code}</code> در حال بازی است.`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  if (room.players.length >= MAX_PLAYERS) {
+    return tgCall('sendMessage', {
+      chat_id: chatId,
+      text: `🚫 اتاق <code>${room.code}</code> پُر است.`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+  }
+  const link = `https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+      `🚪 <b>اتاق پیدا شد!</b>\n\n` +
+      `🎯 کد: <code>${room.code}</code>\n` +
+      `👥 بازیکنان فعلی: ${room.players.length} از ${MAX_PLAYERS}\n\n` +
+      `روی دکمهٔ زیر بزنید تا وارد اتاق شوید:`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [[{ text: '🎮 پیوستن به اتاق', web_app: { url: link } }]],
+    },
+  }).catch(e => console.error('[bot] join error:', e.message));
 }
 
 const WEBAPP_URL = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : 'http://localhost:' + PORT);

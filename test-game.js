@@ -64,7 +64,7 @@ async function main() {
   await sleep(1500);
 
   // A creates personal room
-  a.sock.emit('getPersonalRoom', ({ code }) => {
+  a.sock.emit('createRoom', ({ code }) => {
     console.log('[A] personal room:', code);
     // B joins A's room
     setTimeout(() => b.sock.emit('joinRoom', { code }), 300);
