@@ -428,8 +428,8 @@ async function botLoop() {
     botAbortController = new AbortController();
     try {
       const res = await tgCall('getUpdates', { offset: botOffset, timeout: 10, allowed_updates: ['message'] }, { signal: botAbortController.signal });
-      conflictBackoff = 0; // success — reset backoff
       if (res.ok) {
+        conflictBackoff = 0; // successful poll — reset backoff
         for (const upd of res.result) {
           botOffset = upd.update_id + 1;
           saveBotOffset();

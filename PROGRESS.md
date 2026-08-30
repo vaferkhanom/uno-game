@@ -71,3 +71,19 @@ This file logs every step so a future session can resume.
   This should prevent the 409 entirely. Additionally, the 409 retry logic should be exponential backoff, not fixed 5s.
   
 - Next step: Apply the fix to server.js
+
+## [2025-01-29 step 4 fix] SIGTERM handler + backoff implemented and deployed
+- What I did:
+  1. Added AbortController to the getUpdates fetch (only for polling calls)
+  2. Added SIGTERM/SIGINT handler: sets botShuttingDown, aborts in-flight long-poll, closes HTTP server + socket.io, hard-exits after 2s
+  3. Added exponential backoff on 409 (1s→2s→4s…→30s cap); fixed a self-bug where backoff reset on every response (moved reset into res.ok branch)
+  4. Verified locally: SIGTERM produces '[bot] received SIGTERM, cancelling in-flight getUpdates and exiting' and clean exit
+  5. Committed 2c6e911, pushed, auto-deployed
+- What I found on the new deploy's transition logs:
+  - 13:51:43 new container polling starts
+  - 13:51:46 exactly ONE 409 (old container still held slot)
+  - 13:51:47 old container SIGTERMed and stopped
+  - NO further 409s → retry succeeded, polling healthy
+  - vs. previous deploys: 409 storms lasting minutes (worst: 9-min outage 14:56→15:05)
+- Current hypothesis: Root cause fixed. The historical 'commands don't work' windows were deploy-transition 409 conflicts. Historical user commands DO process when polling is healthy (logs 15:05-15:06 show /start, 🎮 ساخت اتاق جدید, /play, /new, 🏠 اتاق من, /rules, /list all working with rooms created).
+- Next step: Commit backoff fix, verify deploy, then live-verify all 9 commands
