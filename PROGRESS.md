@@ -140,3 +140,13 @@ No further action needed unless the user's live re-test shows a specific command
 - What I found: Author .modal{display:flex} beats UA [hidden]{display:none} → all 4 modals permanently rendered; joinModal (last in DOM) covers every screen. Join actions actually succeeded but the stuck modal made it look like nothing happened.
 - Current hypothesis: N/A — root cause proven.
 - Next step: Applied fixes: (1) style.css global [hidden]{display:none!important}; (2) app.js startapp fallback via location.search. Verifying + deploying.
+
+## [2025-01-29 modal-fix deployed+verified] UI modal bug FIXED and live
+- What I did: Applied + deployed two fixes. Commits 9b231a3 (style.css [hidden]{display:none!important}; app.js startapp fallback) and b799c45 (test harness fix + cleanup).
+- What I found:
+  - Live CSS now shows line 2: `[hidden] { display: none !important; }` ✅
+  - Live app.js shows startapp fallback via location.search ✅
+  - Live E2E (websocket): fresh client state=home → createRoom JDE82 → B join → lobby players=2 → game start → all working; full game ran 60 plays/7 UNO with correct server rejections ✅
+  - test-game.js updated to wait for a lobby-state (not any state) since fresh clients now get the new home state
+- Current hypothesis: N/A — both fixes verified live.
+- Next step: User to re-test in Telegram: /play → open room → no code-entry modal; should land in lobby with room code. If any modal still appears, add a JS init that forces all modal elements hidden on startup.
