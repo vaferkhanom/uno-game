@@ -399,12 +399,19 @@ async function saveBotOffset() {
   } catch (e) {}
 }
 
-async function tgCall(method, body) {
-  const res = await fetch(TG_API + '/' + method, {
+// abortable in-flight getUpdates; cleared on each loop iteration
+let botAbortController = null;
+let botShuttingDown = false;
+
+async function tgCall(method, body, opts) {
+  const init = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {}),
-  });
+  };
+  // Attach the abort signal if the caller provided one (only used for getUpdates)
+  if (opts && opts.signal) init.signal = opts.signal;
+  const res = await fetch(TG_API + '/' + method, init);
   return res.json();
 }
 
@@ -412,9 +419,16 @@ async function botLoop() {
   if (!BOT_TOKEN) return;
   await loadBotOffset();
   console.log(`[bot] starting long-polling, offset=${botOffset}`);
+  let conflictBackoff = 0; // exponential backoff for 409s
   while (true) {
+    if (botShuttingDown) {
+      console.log('[bot] shutdown flag set, exiting polling loop');
+      return;
+    }
+    botAbortController = new AbortController();
     try {
-      const res = await tgCall('getUpdates', { offset: botOffset, timeout: 10, allowed_updates: ['message'] });
+      const res = await tgCall('getUpdates', { offset: botOffset, timeout: 10, allowed_updates: ['message'] }, { signal: botAbortController.signal });
+      conflictBackoff = 0; // success — reset backoff
       if (res.ok) {
         for (const upd of res.result) {
           botOffset = upd.update_id + 1;
@@ -424,14 +438,40 @@ async function botLoop() {
         }
       } else {
         console.error('[bot] getUpdates error:', JSON.stringify(res).slice(0, 300));
-        await new Promise(r => setTimeout(r, 5000));
+        // On 409, exponential backoff up to 30s. On other errors, short retry.
+        const is409 = res && res.error_code === 409;
+        const sleep = is409 ? Math.min(30000, 1000 * Math.pow(2, conflictBackoff++)) : 5000;
+        await new Promise(r => setTimeout(r, sleep));
       }
     } catch (e) {
+      if (botShuttingDown || (e && e.name === 'AbortError')) {
+        console.log('[bot] long-poll aborted by shutdown signal');
+        return;
+      }
       console.error('[bot] loop error:', e.message);
       await new Promise(r => setTimeout(r, 5000));
+    } finally {
+      botAbortController = null;
     }
   }
 }
+
+// Handle graceful shutdown so the in-flight getUpdates is cancelled and
+// Telegram frees the polling slot IMMEDIATELY (instead of waiting up to 10s
+// for the long-poll to time out, which causes 409 on the next instance).
+function handleBotShutdown(signal) {
+  if (botShuttingDown) return; // idempotent
+  botShuttingDown = true;
+  console.log(`[bot] received ${signal}, cancelling in-flight getUpdates and exiting`);
+  try { if (botAbortController) botAbortController.abort(); } catch (e) {}
+  // Stop accepting new HTTP/WS connections, finish in-flight ones, then exit.
+  try { server.close(() => { try { process.exit(0); } catch (e) {} }); } catch (e) {}
+  try { io.close(); } catch (e) {}
+  // Hard cap: don't wait forever, exit after 2s no matter what.
+  setTimeout(() => { try { process.exit(0); } catch (e) {} }, 2000).unref();
+}
+process.on('SIGTERM', () => handleBotShutdown('SIGTERM'));
+process.on('SIGINT', () => handleBotShutdown('SIGINT'));
 
 function handleBotUpdate(upd) {
   const msg = upd.message;
