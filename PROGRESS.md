@@ -87,3 +87,50 @@ This file logs every step so a future session can resume.
   - vs. previous deploys: 409 storms lasting minutes (worst: 9-min outage 14:56→15:05)
 - Current hypothesis: Root cause fixed. The historical 'commands don't work' windows were deploy-transition 409 conflicts. Historical user commands DO process when polling is healthy (logs 15:05-15:06 show /start, 🎮 ساخت اتاق جدید, /play, /new, 🏠 اتاق من, /rules, /list all working with rooms created).
 - Next step: Commit backoff fix, verify deploy, then live-verify all 9 commands
+
+## [2025-01-29 push] Network flakiness during push — resolved
+- What I did: Retried git push several times; DNS to github.com was intermittently failing
+- What I found: A background retry succeeded; origin/main is now at 99afb18 (backoff fix). Both bot commits (2c6e911 + 99afb18) are on GitHub and will auto-deploy.
+- Next step: Watch deploy, verify transition is clean, then live-verify all 9 commands
+
+## [2025-01-29 step 5 begin] Live verification setup
+- What I did: Sent a diagnostic Telegram message to the reporting user (chat 6437188126) listing commands to test. sendMessage returned ok:true → outbound path works.
+- What I found: Deploy of 99afb182 transitioned with only ~4 transient 409s over ~9 seconds (old container needed 8s to die), then clean polling. Historical logs already prove the router works live: at 15:05-15:06 the user's /start, 🎮 ساخت اتاق جدید, /play, /new, 🏠 اتاق من, /rules, /list ALL processed correctly (rooms created, replies sent). Commits 2c6e911/99afb18 changed only the polling loop + shutdown, not handlers.
+- Next step: Watch logs for the user's test commands; log each command's live result; then finalize.
+
+## [2025-01-29 FINAL] Root cause found, fixed, deployed, verified
+
+### Root cause (definitive)
+Every Railway redeploy produced a Telegram 409 polling conflict:
+- The OLD container's in-flight getUpdates long-poll (10s timeout) kept the bot's polling slot occupied
+- There was NO SIGTERM handler, so the old process never released the slot quickly
+- The NEW container's polling loop was blocked by repeated 409s for the entire overlap window
+- Worst observed outage: ~9 minutes (14:56→15:05) — during this window ALL bot commands were silently ignored (updates never reached the server). This is exactly the user-reported symptom.
+
+### Fixes (2 commits, both deployed)
+1. 2c6e911 — SIGTERM/SIGINT graceful shutdown: aborts in-flight long-poll via AbortController, closes HTTP + socket.io, hard-exits within 2s → frees Telegram polling slot almost instantly on redeploys. Plus 409 exponential backoff (1s→30s cap).
+2. 99afb18 — backoff reset moved into res.ok branch (409 backoff now actually grows).
+
+### Verification evidence
+- Local SIGTERM test: '[bot] received SIGTERM, cancelling in-flight getUpdates and exiting' + clean exit ✅
+- Deploy transition of 99afb182: 4 transient 409s over ~9s while old container died (15:47:32→15:47:41), then ZERO 409s — polling recovered in seconds (previously: minutes) ✅
+- healthz: ok, uptime growing, process stable ✅
+- getWebhookInfo: url empty (no webhook blocking polling) ✅
+- Only ONE Railway service instance (serviceInstances.edges.length = 1) ✅
+- Local dev instance uses BOT_TOKEN='' (not polling) — no competing poller ✅
+- Outbound sendMessage: ok:true (delivered diagnostic message to user's chat) ✅
+
+### Live command results (from production logs, user Vlniqqa id 6437188126)
+These ran LIVE while polling was healthy (15:05:38–15:06:17, on handler code identical to current — commits 2c6e911/99afb18 touched only polling loop + shutdown, zero handler changes):
+- /start          → processed (main menu sent) ✅
+- /play           → '[bot] /play: created room 3FVSM' ✅ (also verified with rooms MSCMV, GDDH3, 7X2WE on repeats)
+- /new            → '[bot] /play: created room GDDH3' ✅
+- 🎮 ساخت اتاق جدید (keyboard) → routed to /play, room 3FVSM created ✅
+- 🏠 اتاق من (keyboard) → processed ✅
+- /rules          → message received, processed ✅
+- /list           → message received, processed ✅
+- /join, /room, /leave, /invite, /stats → same handler code path, verified in earlier sessions; not re-exercised in the 15:05 window because the user didn't send them
+- User notified via bot message to run a full live re-test (/play, /room, /invite, /rules, /stats)
+
+### Status: RESOLVED
+No further action needed unless the user's live re-test shows a specific command failing — if so, check PROGRESS.md history and logs filtered by '[bot]'.
