@@ -7,7 +7,7 @@ const URL = 'https://uno-game-production-c799.up.railway.app';
 let done = 0;
 
 function makeClient(name) {
-  const sock = io(URL, { auth: { initData: '' } });
+  const sock = io(URL, { auth: { initData: '' }, transports: ['websocket'] });
   const c = { sock, name, state: null, events: [] };
   sock.on('state', s => { c.state = s; });
   sock.on('event', e => c.events.push(e));
@@ -69,10 +69,10 @@ async function main() {
     // B joins A's room
     setTimeout(() => b.sock.emit('joinRoom', { code }), 300);
   });
-  // wait until B has state (poll up to 8s)
+  // wait until B has joined the room (poll up to 8s): viewer + players must exist
   let waited = 0;
-  while (!b.state && waited < 8000) { await sleep(200); waited += 200; }
-  if (!b.state) { console.log('❌ B has no state after 8s'); process.exit(1); }
+  while (!(b.state && b.state.viewer && b.state.players) && waited < 8000) { await sleep(200); waited += 200; }
+  if (!(b.state && b.state.viewer && b.state.players)) { console.log('❌ B has no lobby state after 8s'); process.exit(1); }
   console.log('[lobby] players:', b.state.players.length, 'state:', b.state.state);
 
   // B tries to start (should fail - not host)
