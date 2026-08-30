@@ -87,8 +87,10 @@
     socket.on('connect', () => {
       $('splashError').hidden = true;
       $('retryBtn').hidden = true;
-      // اگر لینک دعوت دارد (startapp)
-      const sp = tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param;
+      // اگر لینک دعوت دارد (startapp) — از initDataUnsafe یا از query string
+      const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param)
+        || new URLSearchParams(window.location.search).get('startapp')
+        || null;
       if (sp && !joinedOnce) {
         joinedOnce = true;
         if (String(sp).toLowerCase() === 'create') {

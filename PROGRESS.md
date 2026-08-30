@@ -134,3 +134,9 @@ These ran LIVE while polling was healthy (15:05:38–15:06:17, on handler code i
 
 ### Status: RESOLVED
 No further action needed unless the user's live re-test shows a specific command failing — if so, check PROGRESS.md history and logs filtered by '[bot]'.
+
+## [2025-01-29 modal-fix] ROOT CAUSE: .modal display:flex overrides [hidden] — all modals always visible
+- What I did: Verified live CSS (line 280 .modal display:flex, no [hidden] rule) and live HTML (4 modals with hidden attr). Confirmed bot logs at user's test time (16:24-16:25 UTC): /play created room WCTYW+EECV9, /room //invite//rules//stats all received+processed. Bot was working; Mini App UI was broken.
+- What I found: Author .modal{display:flex} beats UA [hidden]{display:none} → all 4 modals permanently rendered; joinModal (last in DOM) covers every screen. Join actions actually succeeded but the stuck modal made it look like nothing happened.
+- Current hypothesis: N/A — root cause proven.
+- Next step: Applied fixes: (1) style.css global [hidden]{display:none!important}; (2) app.js startapp fallback via location.search. Verifying + deploying.
