@@ -167,3 +167,18 @@ No further action needed unless the user's live re-test shows a specific command
   - Tap "🤖 بازی با ربات" — game starts immediately
   - The user can also tap "🎮 ساخت اتاق (با دوستان)" to create a normal room, or "🔑 پیوستن با کد" for the code-input flow
 - What was NOT changed: game engine (uno.js) rules, bot handlers, CSS color palette, fonts, existing card SVGs.
+
+## [2025-01-30 PART1-DONE] #game grid layout redesign — structural fix deployed
+- Fixed: grid-template-areas `topbar/table/actions/hand` replaces 10 position:absolute/fixed elements
+- table-center: position:absolute removed, now grid-area:table flex child
+- turn-banner: moved inside .table-center, order:-1 to render above pile
+- direction-badge: moved inside .discard-area, right:-10px, 36x36px circle (not pixel top:88px)
+- game-actions: grid-area:actions (no longer right/left/bottom absolute)
+- hand-wrap: grid-area:hand (no longer bottom:absolute)
+- catch-banner: fixed center (no longer top:34% absolute)
+- exit button: removed dynamic creation from app.js; wired existing #gameExitBtn in HTML
+- HTML: renamed .game-table -> .table-center for consistency
+- app.js: exit button wired to existing HTML element instead of dynamically created
+- game-topbar already had grid-area:topbar from previous work
+- Committed: 63a688e | Pushed -> Railway (uptime: 167s)
+- E2E: RESTART TEST PASSED on production
