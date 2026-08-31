@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0b0b1e">
-  <title>🎲 یونو آنلاین</title>
+  <title>یونو آنلاین</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/css/style.css?v=g20250130-2">
+  <link rel="stylesheet" href="/css/style.css?v=g20260831-1">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23ff3b3b'/><text x='50' y='66' font-size='40' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>U</text></svg>">
 </head>
 <body>
@@ -20,11 +20,13 @@
   <div id="splash" class="screen active">
     <div class="splash-inner">
       <div class="splash-logo" id="splashLogo"></div>
-      <h1 class="splash-title">یونو آنلاین</h1>
+      <h1 class="splash-title">یونو <span class="grad-text">آنلاین</span></h1>
       <p class="splash-sub">در حال اتصال به سرور…</p>
       <div class="loader"><div class="loader-bar"></div></div>
       <p id="splashError" class="splash-error" hidden></p>
-      <button id="retryBtn" class="btn btn-primary" hidden style="margin-top:14px;padding:12px 26px;font-size:15px;">🔄 تلاش دوباره</button>
+      <button id="retryBtn" class="btn btn-primary" hidden style="margin-top:14px;padding:12px 26px;font-size:15px;">
+        <span class="btn-ic" data-icon="refresh"></span>تلاش دوباره
+      </button>
     </div>
   </div>
 
@@ -34,116 +36,134 @@
         <div class="avatar" id="homeAvatar"></div>
         <div class="profile-info">
           <span class="profile-name" id="homeName">بازیکن</span>
-          <span class="profile-tag">آنلاین 🟢</span>
+          <span class="profile-tag"><i class="dot-online"></i>آنلاین</span>
         </div>
       </div>
-      <button class="btn-icon" id="helpBtn" title="راهنما">؟</button>
+      <button class="btn-icon" id="helpBtn" title="راهنما"><span class="icon" data-icon="question"></span></button>
     </header>
 
     <div class="home-hero">
       <div class="hero-cards" id="heroCards"></div>
       <h1 class="hero-title">یونو <span class="grad-text">آنلاین</span></h1>
-      <p class="hero-sub">با هوش مصنوعی تمرین کن، یا با دوستانت بازی کن!</p>
+      <p class="hero-sub">با ربات‌ها تمرین کن یا دوستانت را به چالش بکش</p>
     </div>
 
     <div class="home-actions">
       <button class="btn btn-primary btn-big" id="playWithBotsBtn">
         <span class="btn-glow"></span>
-        🤖 بازی با ربات
+        <span class="btn-ic" data-icon="robot"></span>بازی با ربات
       </button>
       <button class="btn btn-secondary btn-big" id="myRoomBtn">
-        🎮 ساخت اتاق (با دوستان)
+        <span class="btn-ic" data-icon="controller"></span>ساخت اتاق (با دوستان)
       </button>
-      <button class="btn btn-small btn-secondary" id="joinBtn">🔑 پیوستن با کد</button>
+      <button class="btn btn-small btn-secondary" id="joinBtn">
+        <span class="btn-ic" data-icon="key"></span>پیوستن با کد
+      </button>
     </div>
 
     <div class="home-rules card-glass">
-      <h3>📜 قوانین سریع</h3>
+      <h3><span class="icon" data-icon="scroll"></span>قوانین سریع</h3>
       <ul>
-        <li>کارت‌های هم‌رنگ یا هم‌عدد را بازی کن</li>
-        <li>کارت‌های ویژه: رد ⛔ ، معکوس 🔄 ، +۲ 🃏</li>
-        <li>وایلد 🌈 رنگ را عوض می‌کند، +۴ 😱 چهار کارت می‌دهد</li>
-        <li>با یک کارت باقی‌مانده، «یونو!» را بگو</li>
-        <li>اولین نفری که کارت‌هایش تمام شود برنده است 🏆</li>
+        <li>کارتِ هم‌رنگ یا هم‌عددِ کارت روی میز را بازی کن</li>
+        <li>کارت‌های ویژه: <b class="k">رد</b>، <b class="k">معکوس</b> و <b class="k num">۲+</b></li>
+        <li><b class="k wild">وایلد</b> رنگ را عوض می‌کند؛ <b class="k wild num">۴+</b> چهار کارت می‌دهد</li>
+        <li>با یک کارتِ باقی‌مانده، دکمهٔ <b class="k">یونو</b> را بزن</li>
+        <li>اولین نفری که کارت‌هایش تمام شود، برنده است</li>
       </ul>
     </div>
   </div>
 
   <div id="lobby" class="screen">
     <header class="topbar">
-      <button class="btn-icon back" id="lobbyBack">→</button>
+      <button class="btn-icon back" id="lobbyBack"><span class="icon" data-icon="back"></span></button>
       <h2 class="topbar-title">اتاق بازی</h2>
-      <div style="width:44px"></div>
+      <div class="topbar-spacer"></div>
     </header>
 
     <div class="lobby-card card-glass">
       <div class="room-code-label">کد اتاق</div>
       <div class="room-code" id="roomCode">-----</div>
       <div class="room-actions">
-        <button class="btn btn-small btn-secondary" id="copyCodeBtn">📋 کپی کد</button>
-        <button class="btn btn-small btn-secondary" id="shareBtn">📤 دعوت دوستان</button>
+        <button class="btn btn-small btn-secondary" id="copyCodeBtn"><span class="btn-ic" data-icon="copy"></span>کپی کد</button>
+        <button class="btn btn-small btn-secondary" id="shareBtn"><span class="btn-ic" data-icon="share"></span>دعوت دوستان</button>
       </div>
-      <button class="btn btn-secondary btn-small lobby-join" id="lobbyJoinBtn">🔑 کد دوستت را وارد کن</button>
+      <button class="btn btn-secondary btn-small lobby-join" id="lobbyJoinBtn">
+        <span class="btn-ic" data-icon="key"></span>کد دوستت را وارد کن
+      </button>
     </div>
 
-    <div class="players-title">بازیکنان (<span id="playerCount">۱</span>/۶)</div>
+    <div class="players-title">بازیکنان (<span id="playerCount">۱</span> از ۶)</div>
     <div class="players-list" id="playersList"></div>
 
     <div class="lobby-footer">
       <button class="btn btn-primary btn-big" id="startGameBtn">
-        <span class="btn-glow"></span>🎮 شروع بازی
+        <span class="btn-glow"></span><span class="btn-ic" data-icon="play"></span>شروع بازی
       </button>
-      <p class="lobby-hint" id="lobbyHint">حداقل ۲ بازیکن لازم است — کد را برای دوستانتان بفرستید!</p>
+      <p class="lobby-hint" id="lobbyHint">حداقل ۲ بازیکن لازم است — کد را برای دوستانتان بفرستید</p>
     </div>
   </div>
 
   <div id="game" class="screen">
-    <!-- نوار بالا: خروج + کد اتاق + حریف‌ها -->
-    <div class="game-topbar">
+    <!-- نوار بالا: خروج + کد اتاق -->
+    <header class="game-topbar">
       <div class="game-topbar-row">
-        <button class="btn-icon game-exit" id="gameExitBtn" title="خروج">→</button>
+        <button class="btn-icon game-exit" id="gameExitBtn" title="خروج"><span class="icon" data-icon="exit"></span></button>
         <div class="game-room-chip" id="gameRoomChip" title="کپی کد اتاق">
+          <span class="chip-label">اتاق</span>
           <span class="chip-code" id="gameRoomCode">-----</span>
+          <span class="icon chip-copy" data-icon="copy"></span>
         </div>
         <div class="game-topbar-spacer"></div>
       </div>
-      <div id="opponents"></div>
-    </div>
+    </header>
 
-    <!-- میز -->
-    <div class="table-center" id="gameTable">
-      <div class="turn-banner" id="turnBanner">نوبت شماست! 🔥</div>
-      <div class="pile-area">
-        <div class="deck-pile" id="deckPile">
-          <div class="deck-back" id="deckBack"></div>
-          <div class="deck-count" id="deckCount">۵۴</div>
-        </div>
-        <div class="discard-area">
-          <div class="color-ring" id="colorRing"></div>
-          <div class="discard-pile" id="discardPile"></div>
-          <div class="direction-badge" id="directionBadge" title="جهت بازی">⟳</div>
+    <!-- میز: حریف‌ها دور میز می‌نشینند -->
+    <div class="table-zone" id="gameTable">
+      <div class="seat-area area-tl" id="seatSlotTL"></div>
+      <div class="seat-area area-top" id="seatSlotTop"></div>
+      <div class="seat-area area-tr" id="seatSlotTR"></div>
+      <div class="seat-area area-left" id="seatSlotLeft"></div>
+
+      <div class="table-center">
+        <div class="turn-banner" id="turnBanner"><span id="turnBannerText">منتظر شروع…</span></div>
+        <div class="pile-area">
+          <div class="deck-pile" id="deckPile">
+            <div class="deck-back" id="deckBack"></div>
+            <div class="deck-count" id="deckCount">—</div>
+          </div>
+          <div class="discard-area">
+            <div class="color-ring" id="colorRing"></div>
+            <div class="discard-pile" id="discardPile"></div>
+          </div>
+          <div class="direction-badge" id="directionBadge" title="جهت بازی">
+            <span class="icon" data-icon="reverse"></span>
+          </div>
         </div>
       </div>
-      <div class="catch-banner" id="catchBanner" hidden></div>
+
+      <div class="seat-area area-right" id="seatSlotRight"></div>
     </div>
 
     <!-- اکشن‌ها -->
     <div class="game-actions" id="gameActions">
-      <button class="btn btn-action btn-draw" id="drawBtn">🃏 برداشتن کارت</button>
-      <button class="btn btn-action btn-pass" id="passBtn" disabled>⏭ گذر</button>
-      <button class="btn btn-action btn-uno" id="unoBtn" hidden>📢 یونو!</button>
+      <button class="btn btn-action btn-draw" id="drawBtn"><span class="btn-ic" data-icon="cards"></span>برداشتن کارت</button>
+      <button class="btn btn-action btn-pass" id="passBtn" disabled><span class="btn-ic" data-icon="skip"></span>گذر</button>
+      <button class="btn btn-action btn-uno" id="unoBtn" hidden><span class="btn-ic" data-icon="siren"></span>یونو!</button>
     </div>
 
     <!-- دست بازیکن -->
     <div class="hand-wrap">
       <div class="hand" id="hand"></div>
     </div>
+
+    <!-- بنر گرفتن یونو -->
+    <div class="catch-banner" id="catchBanner" hidden></div>
   </div>
 
 
   <div class="modal" id="colorModal" hidden>
     <div class="modal-box card-glass color-modal">
-      <h3>🎨 رنگ را انتخاب کن</h3>
+      <h3><span class="icon" data-icon="palette"></span>رنگ را انتخاب کن</h3>
       <div class="color-grid">
         <button class="color-pick red" data-color="red"><span></span></button>
         <button class="color-pick yellow" data-color="yellow"><span></span></button>
@@ -156,40 +176,42 @@
   <div class="modal" id="winModal" hidden>
     <canvas id="confetti"></canvas>
     <div class="modal-box card-glass win-box">
-      <div class="win-trophy">🏆</div>
+      <div class="win-trophy"><span class="icon" data-icon="trophy"></span></div>
       <h2 class="win-title" id="winTitle">برنده!</h2>
       <p class="win-sub" id="winSub"></p>
       <div class="win-scores" id="winScores"></div>
-      <button class="btn btn-primary btn-big" id="againBtn">🔄 بازی دوباره</button>
+      <button class="btn btn-primary btn-big" id="againBtn">
+        <span class="btn-ic" data-icon="refresh"></span>بازی دوباره
+      </button>
     </div>
   </div>
 
   <div class="modal" id="helpModal" hidden>
     <div class="modal-box card-glass help-box">
-      <h3>📖 راهنمای یونو</h3>
+      <h3><span class="icon" data-icon="book"></span>راهنمای یونو</h3>
       <div class="help-content">
-        <p><b>🎯 هدف:</b> زودتر از بقیه کارت‌هایت را تمام کن.</p>
-        <p><b>▶️ نوبت:</b> کارتی بازی کن که هم‌رنگ یا هم‌عدد/هم‌نماد کارت روی میز باشد، یا یک کارت بردار.</p>
-        <p><b>⛔ رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.</p>
-        <p><b>🔄 معکوس (Reverse):</b> جهت بازی عوض می‌شود.</p>
-        <p><b>🃏 +۲:</b> بازیکن بعدی ۲ کارت برمی‌دارد و رد می‌شود.</p>
-        <p><b>🌈 وایلد:</b> رنگ دلخواه را انتخاب کن.</p>
-        <p><b>😱 +۴ وایلد:</b> رنگ انتخاب کن؛ بازیکن بعدی ۴ کارت برمی‌دارد و رد می‌شود.</p>
-        <p><b>📢 یونو:</b> وقتی یک کارت برایت مانده دکمهٔ «یونو!» را بزن، وگرنه اگر کسی تو را بگیرد ۲ کارت جریمه می‌گیری!</p>
-        <p><b>🏆 امتیاز:</b> برندهٔ هر دست، امتیاز کارت‌های بقیه را می‌گیرد (عددی = خود عدد، ویژه = ۲۰، وایلد = ۵۰).</p>
+        <p><b>هدف:</b> زودتر از بقیه کارت‌هایت را تمام کن.</p>
+        <p><b>نوبت:</b> کارتی بازی کن که هم‌رنگ یا هم‌عدد/هم‌نمادِ کارت روی میز باشد، یا یک کارت بردار.</p>
+        <p><b>رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.</p>
+        <p><b>معکوس (Reverse):</b> جهت چرخش بازی عوض می‌شود؛ به نشانهٔ درخشان کنار نام بازیکن‌ها دقت کن.</p>
+        <p><b>۲+:</b> بازیکن بعدی ۲ کارت برمی‌دارد و رد می‌شود.</p>
+        <p><b>وایلد:</b> رنگ دلخواه را انتخاب کن.</p>
+        <p><b>۴+ وایلد:</b> رنگ انتخاب کن؛ بازیکن بعدی ۴ کارت برمی‌دارد و رد می‌شود.</p>
+        <p><b>یونو:</b> وقتی یک کارت برایت مانده دکمهٔ «یونو!» را بزن، وگرنه اگر کسی تو را بگیرد ۲ کارت جریمه می‌گیری.</p>
+        <p><b>امتیاز:</b> برندهٔ هر دست، امتیاز کارت‌های بقیه را می‌گیرد (عددی = خود عدد، ویژه = ۲۰، وایلد = ۵۰).</p>
       </div>
-      <button class="btn btn-primary" id="helpClose">فهمیدم! 👍</button>
+      <button class="btn btn-primary" id="helpClose"><span class="btn-ic" data-icon="check"></span>فهمیدم</button>
     </div>
   </div>
 
   <div class="modal" id="joinModal" hidden>
     <div class="modal-box card-glass join-box">
-      <h3>🚪 پیوستن به اتاق</h3>
+      <h3><span class="icon" data-icon="door"></span>پیوستن به اتاق</h3>
       <p class="join-sub">کد ۵ حرفی اتاق را وارد کن:</p>
       <input id="joinInput" class="join-input" maxlength="5" placeholder="ABCDE" autocomplete="off" autocapitalize="characters">
       <div class="join-actions">
         <button class="btn btn-secondary" id="joinCancel">انصراف</button>
-        <button class="btn btn-primary" id="joinGo">ورود ✨</button>
+        <button class="btn btn-primary" id="joinGo"><span class="btn-ic" data-icon="check"></span>ورود</button>
       </div>
     </div>
   </div>
@@ -198,7 +220,7 @@
 
   <script src="/vendor/socket.io.min.js?v=1a2b3c4d"></script>
   <script src="/js/cards.js?v=1a2b3c4d"></script>
-  <script src="/js/app.js?v=1a2b3c4d"></script>
+  <script src="/js/icons.js?v=g20260831-1"></script>
+  <script src="/js/app.js?v=g20260831-1"></script>
 </body>
 </html>
-

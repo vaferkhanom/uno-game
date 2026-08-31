@@ -105,7 +105,7 @@ class Room {
     }
     const p = this.newPlayer(user);
     this.players.push(p);
-    this.pushLog(`${p.name} به اتاق پیوست 👋`);
+    this.pushLog(`${p.name} به اتاق پیوست`);
     return { ok: true };
   }
 
@@ -124,7 +124,7 @@ class Room {
     } else {
       this.players[idx].connected = false;
       this.players[idx].hand = [];
-      this.pushLog(`${name} از بازی خارج شد 💨`);
+      this.pushLog(`${name} از بازی خارج شد`);
       if (this.players[idx].id === this.currentPlayerId()) this.advanceTurn();
       this.checkGameEndOnLeave();
     }
@@ -179,7 +179,7 @@ class Room {
     }
     this.discard.push(starter);
     this.currentColor = starter.color === 'wild' ? null : starter.color;
-    this.pushLog('بازی شروع شد! 🎉');
+    this.pushLog('بازی شروع شد!');
 
     if (starter.value === 'wild') {
       this.colorPickPending = true;
@@ -196,7 +196,7 @@ class Room {
       } else if (starter.value === 'reverse') {
         this.direction = -1;
         if (this.players.length === 2) this.advanceTurn();
-        this.pushLog('جهت بازی معکوس شد! 🔄');
+        this.pushLog('جهت بازی معکوس شد!');
       }
     }
     this.turnStartedAt = Date.now();
@@ -218,7 +218,7 @@ class Room {
     for (const c of rest) if (c.color === 'wild') c.chosenColor = null;
     this.deck = shuffle(rest);
     this.discard = [top];
-    this.pushLog('برگ‌ها مخلوط شدند ♻️');
+    this.pushLog('برگ‌ها مخلوط شدند');
   }
 
   nextIndex(from = this.turnIndex) {
@@ -272,11 +272,11 @@ class Room {
 
     if (card.value === 'skip') {
       const skipped = this.players[this.nextIndex()];
-      this.pushLog(`${skipped.name} رد شد! ⛔`);
+      this.pushLog(`${skipped.name} رد شد!`);
       this.advanceTurn(); this.advanceTurn();
     } else if (card.value === 'reverse') {
       this.direction *= -1;
-      this.pushLog('جهت بازی معکوس شد! 🔄');
+      this.pushLog('جهت بازی معکوس شد!');
       if (this.players.length === 2) {
         this.advanceTurn(); this.advanceTurn(); // reverse acts as skip in 2-player
       } else {
@@ -285,12 +285,12 @@ class Room {
     } else if (card.value === 'draw2') {
       const victim = this.players[this.nextIndex()];
       this.drawCards(victim, 2);
-      this.pushLog(`${victim.name} ۲ کارت برداشت! 🃏🃏`);
+      this.pushLog(`${victim.name} ۲ کارت برداشت!`);
       this.advanceTurn(); this.advanceTurn();
     } else if (card.value === 'wild4') {
       const victim = this.players[this.nextIndex()];
       this.drawCards(victim, 4);
-      this.pushLog(`${victim.name} ۴ کارت برداشت! 😱`);
+      this.pushLog(`${victim.name} ۴ کارت برداشت!`);
       this.advanceTurn(); this.advanceTurn();
     } else {
       this.advanceTurn();
@@ -307,7 +307,7 @@ class Room {
     this.currentColor = color;
     this.colorPickPending = false;
     const p = this.currentPlayer();
-    this.pushLog(`${p.name} رنگ ${color} را انتخاب کرد 🎨`);
+    this.pushLog(`${p.name} رنگ ${color} را انتخاب کرد`);
     this.turnStartedAt = Date.now();
     return { ok: true };
   }
@@ -346,7 +346,7 @@ class Room {
     if (!st) return { error: 'شرایط یونو ندارید.' };
     st.called = true;
     const p = this.playerById(playerId);
-    this.pushLog(`${p.name} گفت: یونو! 📢`);
+    this.pushLog(`${p.name} گفت: یونو!`);
     return { ok: true };
   }
 
@@ -362,7 +362,7 @@ class Room {
     if (accused.hand.length !== 1) { delete this.unoStates[String(accusedId)]; return { error: 'شرایط یونو دیگر برقرار نیست.' }; }
     this.drawCards(accused, 2);
     delete this.unoStates[String(accusedId)];
-    this.pushLog(`${catcher.name} ${accused.name} را گیر انداخت! ۲ کارت جریمه 🚨`);
+    this.pushLog(`${catcher.name} ${accused.name} را گیر انداخت! ۲ کارت جریمه`);
     return { ok: true };
   }
 
@@ -389,7 +389,7 @@ class Room {
     if (this.winnerId) {
       this.roundScores[this.winnerId] = (this.roundScores[this.winnerId] || 0) + pts;
       const w = this.playerById(this.winnerId);
-      this.pushLog(`${w ? w.name : 'بازیکن'} برنده شد! 🏆 (+${pts} امتیاز)${note ? ' — ' + note : ''}`);
+      this.pushLog(`${w ? w.name : 'بازیکن'} برنده شد! (+${pts} امتیاز)${note ? ' — ' + note : ''}`);
     } else {
       this.pushLog(note || 'بازی پایان یافت.');
     }

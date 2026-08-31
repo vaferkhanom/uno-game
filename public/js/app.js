@@ -43,6 +43,15 @@
   };
 
   // ---------- توست ----------
+  // ---------- آیکون‌ها ----------
+  function injectIcons(root) {
+    const ICON = window.UNOIcons;
+    if (!ICON) return;
+    (root || document).querySelectorAll('[data-icon]').forEach(el => {
+      el.innerHTML = ICON.icon(el.dataset.icon);
+    });
+  }
+
   function toast(msg, kind) {
     const el = document.createElement('div');
     el.className = 'toast' + (kind ? ' ' + kind : '');
@@ -64,7 +73,7 @@
   function avatarHTML(player) {
     if (player.avatar) return `<img src="${player.avatar}" alt="" onerror="this.remove()">`;
     const letter = (player.name || '؟').trim().charAt(0).toUpperCase();
-    return letter;
+    return `<span>${escapeHTML(letter)}</span>`;
   }
 
   // ---------- سوکت ----------
@@ -72,6 +81,7 @@
   let state = null;           // آخرین state دریافتی برای همین بیننده
   let myRoomCode = null;
   let prevHandIds = null;     // برای انیمیشن پخش کارت
+  let prevDirection = 0;      // برای فلاش نشان جهت
   let joinedOnce = false;
   let fetchingRoom = false;
 
@@ -137,7 +147,6 @@
     });
 
     socket.on('event', handleEvent);
-    // خروج از اتاق: سرور بعد از leaveRoom این ایونت را می‌فرستد → برگرد به خانه
     socket.on('left', () => { state = null; hideWinner(); showScreen('home'); });
     socket.on('error_msg', (e) => { toast(e.message || 'خطا', 'bad'); SFX.error(); });
     socket.on('disconnect', () => toast('اتصال قطع شد… در حال تلاش مجدد', 'bad'));
@@ -148,6 +157,7 @@
   // ---------- رندر خانه ----------
   function renderHome() {
     $('splashLogo').innerHTML = U.logoSVG(120);
+    $('deckBack').innerHTML = U.cardBackSVG();
     if (me) {
       const av = $('homeAvatar');
       if (me.photo_url) av.innerHTML = `<img src="${me.photo_url}" onerror="this.remove()">`;
@@ -175,8 +185,8 @@
       row.style.animationDelay = (i * 60) + 'ms';
       row.innerHTML = `
         <div class="avatar">${avatarHTML(p)}</div>
-        <span class="player-row-name">${escapeHTML(p.name)}${p.connected ? '' : ' 💤'}</span>
-        ${p.isHost ? '<span class="badge host">میزبان 👑</span>' : ''}
+        <span class="player-row-name">${escapeHTML(p.name)}${p.connected ? '' : '<span class="badge off">آفلاین</span>'}</span>
+        ${p.isHost ? '<span class="badge host">میزبان</span>' : ''}
         ${p.id === (s.viewer && s.viewer.id) ? '<span class="badge you">شما</span>' : ''}
       `;
       list.appendChild(row);
@@ -186,8 +196,8 @@
     $('startGameBtn').disabled = !canStart;
     $('startGameBtn').style.display = isHost ? '' : 'none';
     $('lobbyHint').textContent = isHost
-      ? (s.players.length < s.minPlayers ? 'حداقل ۲ بازیکن لازم است — کد را برای دوستانتان بفرستید!' : 'همه آماده‌اند! بازی را شروع کن 🚀')
-      : 'منتظر میزبان برای شروع بازی… ⏳';
+      ? (s.players.length < s.minPlayers ? 'حداقل ۲ بازیکن لازم است — کد را برای دوستانتان بفرستید' : 'همه آماده‌اند! بازی را شروع کن')
+      : 'منتظر میزبان برای شروع بازی…';
   }
 
   function escapeHTML(str) {
@@ -204,25 +214,63 @@
     return false;
   }
 
+  /*
+   * صندلی‌ها دور میز (مثل یونوی واقعی):
+   *   ۱ بازیکن حریف → بالای میز
+   *   ۲ بازیکن  → چپ و راست میز (عمودی)
+   *   ۳ بازیکن  → چپ، بالا، راست
+   *   ۴+ بازیکن → چپ، بالا-چپ، بالا-راست، راست (بالا دو صندلی می‌پذیرد)
+   * خود بازیکن صندلی ندارد؛ کارت‌هایش پایین صفحه است.
+   */
+  const SEAT_SLOTS = {
+    1: ['Left'],
+    2: ['Left', 'Right'],
+    3: ['Left', 'Top', 'Right'],
+    4: ['Left', 'TopLeft', 'TopRight', 'Right'],
+    5: ['Left', 'TopLeft', 'Top', 'TopRight', 'Right'],
+  };
+
+  function seatHTML(p) {
+    return `
+      <span class="seat-turn">نوبت</span>
+      <div class="avatar">${avatarHTML(p)}</div>
+      <div class="seat-info">
+        <span class="seat-name">${escapeHTML(p.name)}</span>
+        <span class="seat-sub">
+          <span class="seat-fan"><i></i><i></i><i></i></span>
+          <span class="seat-count">${faNum(p.handCount)}</span>
+        </span>
+      </div>
+    `;
+  }
+
+  function renderSeats(s) {
+    const v = s.viewer;
+    const others = s.players.filter(p => p.id !== v.id);
+    // همهٔ اسلات‌ها را خالی کن
+    ['TL', 'Top', 'TR', 'Left', 'Right'].forEach(k => { $('seatSlot' + k).innerHTML = ''; });
+    const slots = SEAT_SLOTS[Math.min(others.length, 5)] || SEAT_SLOTS[5];
+    others.slice(0, slots.length).forEach((p, i) => {
+      const key = slots[i];
+      const area = $('seatSlot' + key);
+      const vertical = (key === 'Left' || key === 'Right');
+      const el = document.createElement('div');
+      el.className = 'seat' + (vertical ? ' vert' : '') +
+        (p.isCurrent ? ' is-current' : '') +
+        (p.hasUno ? ' has-uno' : '') +
+        (p.connected ? '' : ' offline');
+      el.dataset.pid = p.id;
+      el.innerHTML = seatHTML(p);
+      area.appendChild(el);
+    });
+  }
+
   function renderGame(s, first) {
     const game = s.game;
     const v = s.viewer;
 
-    // --- حریف‌ها ---
-    const oppsWrap = $('opponents');
-    oppsWrap.innerHTML = '';
-    s.players.filter(p => p.id !== v.id).forEach((p, i) => {
-      const el = document.createElement('div');
-      el.className = 'opp' + (p.isCurrent ? ' is-current' : '') + (p.hasUno ? ' has-uno' : '') + (p.connected ? '' : ' offline');
-      el.style.animationDelay = (i * 70) + 'ms';
-      el.dataset.pid = p.id;
-      el.innerHTML = `
-        <div class="avatar">${avatarHTML(p)}</div>
-        <span class="opp-name">${escapeHTML(p.name)}</span>
-        <span class="opp-cards">🃏${faNum(p.handCount)}</span>
-      `;
-      oppsWrap.appendChild(el);
-    });
+    // --- صندلی‌های دور میز ---
+    renderSeats(s);
 
     // --- دیسکارد و دیک ---
     if (game && game.topCard) {
@@ -235,22 +283,30 @@
     // --- جهت ---
     const dir = $('directionBadge');
     dir.classList.toggle('ccw', !!(game && game.direction === -1));
-    dir.textContent = game && game.direction === -1 ? '⟲' : '⟳';
+    if (game && game.direction && game.direction !== prevDirection) {
+      if (prevDirection !== 0 && !first) {
+        dir.classList.remove('flash');
+        void dir.offsetWidth;
+        dir.classList.add('flash');
+        toast('جهت بازی عوض شد');
+      }
+      prevDirection = game.direction;
+    }
 
     // --- بنر نوبت ---
     const banner = $('turnBanner');
     if (game && game.turnPlayerId) {
       const tp = s.players.find(p => p.id === game.turnPlayerId);
-      banner.classList.add('show');
       if (v.isTurn) {
         banner.classList.add('me');
-        banner.textContent = 'نوبت شماست! 🔥';
+        $('turnBannerText').textContent = 'نوبت شماست';
       } else {
         banner.classList.remove('me');
-        banner.textContent = `نوبت ${tp ? tp.name : '…'}`;
+        $('turnBannerText').textContent = `نوبت: ${tp ? tp.name : '…'}`;
       }
     } else {
-      banner.classList.remove('show', 'me');
+      banner.classList.remove('me');
+      $('turnBannerText').textContent = 'منتظر شروع…';
     }
 
     // --- اکشن‌ها ---
@@ -277,7 +333,7 @@
         return p ? p.name : '';
       });
       cb.hidden = false;
-      cb.innerHTML = `<button id="catchBtn">🚨 ${escapeHTML(names[0])} یونو نگفت — بگیرش!</button>`;
+      cb.innerHTML = `<button id="catchBtn"><span class="icon">${window.UNOIcons.icon('siren')}</span>${escapeHTML(names[0])} یونو نگفت — بگیرش!</button>`;
       $('catchBtn').onclick = () => emit('catchUno', { accusedId: v.canCatch[0] });
     } else {
       cb.hidden = true;
@@ -359,33 +415,34 @@
     switch (ev.type) {
       case 'gameStart':
         SFX.deal();
-        toast('بازی شروع شد! 🎉', 'good');
+        toast('بازی شروع شد', 'good');
         break;
       case 'play': {
         SFX.play();
         flyCardToDiscard(ev);
-        if (ev.chosenColor) setTimeout(() => toast(`رنگ ${colorName(ev.chosenColor)} انتخاب شد 🎨`), 600);
+        if (ev.chosenColor) setTimeout(() => toast(`رنگ ${colorName(ev.chosenColor)} انتخاب شد`), 600);
+        if (ev.card && ev.card.value === 'reverse') { SFX.turn(); }
         break;
       }
       case 'draw': {
         SFX.draw();
         if (ev.auto) {
           const p = state.players.find(pp => pp.id === ev.playerId);
-          toast(`${p ? p.name : 'بازیکن'} ۹۰ ثانیه بی‌حرکت بود — خودکار رد شد ⏱`);
+          toast(`${p ? p.name : 'بازیکن'} مدتی بی‌حرکت بود — خودکار رد شد`);
         }
         break;
       }
       case 'color':
-        toast(`رنگ: ${colorName(ev.color)} 🎨`);
+        toast(`رنگ: ${colorName(ev.color)}`);
         break;
       case 'uno':
         SFX.uno();
         bigUnoPop();
-        toast('یونو! 📢', 'good');
+        toast('یونو!', 'good');
         break;
       case 'caught':
         SFX.caught();
-        toast('۲ کارت جریمه! 🚨', 'bad');
+        toast('۲ کارت جریمه!', 'bad');
         break;
     }
   }
@@ -402,7 +459,7 @@
         // از پایین صفحه
         fromRect = { left: window.innerWidth / 2 - 55, top: window.innerHeight - 160, width: 110, height: 165 };
       } else {
-        const el = document.querySelector(`.opp[data-pid="${ev.playerId}"]`);
+        const el = document.querySelector(`.seat[data-pid="${ev.playerId}"]`);
         fromRect = el ? el.getBoundingClientRect() : { left: 40, top: 60, width: 40, height: 40 };
       }
       const wrap = document.createElement('div');
@@ -434,8 +491,8 @@
     if (!modal.hidden) return;
     const winner = s.players.find(p => p.id === s.winnerId);
     const isMeWinner = s.winnerId === (s.viewer && s.viewer.id);
-    $('winTitle').textContent = isMeWinner ? 'تو بردی! 🎉' : `${winner ? winner.name : 'بازیکن'} برد!`;
-    $('winSub').textContent = isMeWinner ? 'آفرین! فوق‌العاده بازی کردی 👏' : 'دست بعدی شانست میاره! 💪';
+    $('winTitle').textContent = isMeWinner ? 'تو بردی!' : `${winner ? winner.name : 'بازیکن'} برد!`;
+    $('winSub').textContent = isMeWinner ? 'آفرین، فوق‌العاده بازی کردی' : 'دست بعدی شانست می‌آورد';
     const scores = Object.entries(s.roundScores || {}).sort((a, b) => b[1] - a[1]);
     $('winScores').innerHTML = scores.map(([pid, sc]) => {
       const p = s.players.find(pp => pp.id === pid);
@@ -497,14 +554,14 @@
       // شروع فوری بازی با ۲ ربات — کاربر مستقیماً وارد میز بازی می‌شود
       SFX.play();
       socket.emit('playWithBots', ({ code }) => {
-        if (code) { myRoomCode = code; toast('در حال آماده‌سازی بازی... 🎲', 'good'); }
+        if (code) { myRoomCode = code; toast('در حال آماده‌سازی بازی…', 'good'); }
       });
     };
     $('myRoomBtn').onclick = () => {
       // ساخت یک اتاق جدید (اگر قبلاً در اتاقی هستیم، از آن خارج می‌شویم)
       SFX.play();
       socket.emit('createRoom', ({ code }) => {
-        if (code) { myRoomCode = code; toast('اتاق ساخته شد! 🎉', 'good'); }
+        if (code) { myRoomCode = code; toast('اتاق ساخته شد!', 'good'); }
       });
     };
     $('helpBtn').onclick = () => { $('helpModal').hidden = false; };
@@ -538,13 +595,13 @@
           ta.value = code; document.body.appendChild(ta); ta.select();
           document.execCommand('copy'); ta.remove();
         }
-        toast('کد کپی شد! 📋', 'good');
+        toast('کد کپی شد!', 'good');
       } catch (e) { toast('کد: ' + code); }
     };
     $('shareBtn').onclick = () => {
       const code = state ? state.code : myRoomCode;
       const inviter = (me && me.first_name) || 'دوستت';
-      const text = `🎲 ${inviter} تو را به بازی یونو دعوت کرد!\n\nکد اتاق: ${code}\n\nهمین حالا بپیوند! 🔥`;
+      const text = `${inviter} تو را به بازی یونو دعوت کرد!\n\nکد اتاق: ${code}\n\nهمین حالا بپیوند!`;
       const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink(code))}&text=${encodeURIComponent(text)}`;
       if (tg && tg.openTelegramLink) tg.openTelegramLink(url);
       else window.open(url, '_blank');
@@ -558,7 +615,7 @@
     $('gameRoomChip').onclick = async () => {
       const code = $('gameRoomCode').textContent.trim();
       if (!code || code === '-----') return;
-      try { await navigator.clipboard.writeText(code); toast('کد اتاق کپی شد! 📋', 'good'); }
+      try { await navigator.clipboard.writeText(code); toast('کد اتاق کپی شد!', 'good'); }
       catch (e) { toast('کد: ' + code); }
     };
 
@@ -604,6 +661,7 @@
 
   // ---------- بوت ----------
   async function boot() {
+    injectIcons(document);
     renderHome();
     wireUI();
     try {

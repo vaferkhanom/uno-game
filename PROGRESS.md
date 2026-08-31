@@ -204,3 +204,24 @@ No further action needed unless the user's live re-test shows a specific command
 - Noted (NOT fixed, out of scope): turn watchdog skips disconnected players' seats — a dropped
   human soft-locks a running game (server.js watchdog `if (!p || !p.connected) continue;`).
 - Cache-bust: style.css?v=g20250130-2
+
+## [2026-08-31 REDESIGN-P2] De-emoji + epic typography + seated table layout
+- Emoji ban: every emoji removed from UI (index.html, app.js), game log strings (uno.js) and
+  Telegram bot messages + keyboard labels (server.js; matchers and labels stay in sync).
+- Replacement system: public/js/icons.js — stroke-based inline SVG icon set (currentColor),
+  injected via [data-icon] spans at boot; avatars = initial letters (no emoji avatars).
+- Typography: Vazirmatn Black (900) display scale — hero clamp(44px,13vw,62px), splash 42,
+  room-code 54 monospace, section headers with gold SVG accent, buttons 900 with icon slot.
+- Game layout rebuilt as a table: .table-zone CSS grid seats opponents around the pile —
+  1 opp: left | 2: left+right | 3: left+top+right | 4-5: corners added. Viewer is bottom (hand).
+  Active seat: gold ring + pulsing avatar + "نوبت" pip; turn banner "نوبت: X" / "نوبت شماست";
+  direction badge now SVG with slow spin, mirrors on reverse and flashes on direction change.
+- Overlap safety: pile sizes fluid clamp(64px,20vw,92px) + aspect-ratio 2/3; seat columns
+  minmax(60px,1fr); side seats capped min(84px,100%) with 6px outer margin; removed scale
+  transform on current seat (it caused 3px rect overlap); verified no-intersection at
+  390x844 / 360x640 / 320x568 / 414x896, incl. seats-vs-pile/hand/banner/each-other.
+- deckBack now renders the SVG card back (was an empty dashed box).
+- E2E updated: 46/46 — all screen-toggle chains + seated layout + zero-emoji render check
+  (body.innerText scanned for emoji ranges) + Vazirmatn/weight-900 assertions. Production
+  socket test (test-game.js vs Railway) passed pre-push.
+- Cache-bust: style.css + app.js + icons.js ?v=g20260831-1

@@ -9,16 +9,16 @@ const crypto = require('crypto');
 const { Room, generateRoomCode, COLORS, MAX_PLAYERS } = require('./uno.js');
 
 const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.BOT_TOKEN || '';
-let BOT_USERNAME = process.env.BOT_USERNAME || '';
+const BOT_TOKEN = process.env.BOT_TOKEN ||'';
+let BOT_USERNAME = process.env.BOT_USERNAME ||'';
 
 const app = express();
 const server = http.createServer(app);
 const { Server } = require('socket.io');
-const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 1e6 });
+const io = new Server(server, { cors: { origin:'*' }, maxHttpBufferSize: 1e6 });
 
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname,'public')));
 app.get('/healthz', (req, res) => res.json({ ok: true, uptime: process.uptime(), rooms: rooms.size }));
 app.get('/api/config', (req, res) => res.json({ botUsername: BOT_USERNAME, maxPlayers: MAX_PLAYERS }));
 
@@ -30,58 +30,58 @@ function authUser(req) {
 
 app.post('/api/rooms', (req, res) => {
   const user = authUser(req);
-  if (!user) return res.status(401).json({ error: 'unauthorized' });
+  if (!user) return res.status(401).json({ error:'unauthorized' });
   const room = createRoom(user);
   console.log(`[api] user ${user.id} created room ${room.code}`);
-  res.json({ code: room.code, webAppUrl: WEBAPP_URL + '?startapp=' + room.code });
+  res.json({ code: room.code, webAppUrl: WEBAPP_URL +'?startapp=' + room.code });
 });
 
 app.get('/api/rooms/:code', (req, res) => {
-  const code = String(req.params.code || '').trim().toUpperCase();
+  const code = String(req.params.code ||'').trim().toUpperCase();
   const summary = roomSummary(code);
-  if (!summary) return res.status(404).json({ error: 'not_found' });
+  if (!summary) return res.status(404).json({ error:'not_found' });
   res.json(summary);
 });
 
 app.post('/api/rooms/:code/join', (req, res) => {
   const user = authUser(req);
-  if (!user) return res.status(401).json({ error: 'unauthorized' });
-  const code = String(req.params.code || '').trim().toUpperCase();
+  if (!user) return res.status(401).json({ error:'unauthorized' });
+  const code = String(req.params.code ||'').trim().toUpperCase();
   const room = findRoomByCode(code);
-  if (!room) return res.status(404).json({ error: 'not_found' });
-  if (room.state !== 'lobby') return res.status(409).json({ error: 'game_in_progress' });
-  if (room.players.length >= MAX_PLAYERS) return res.status(409).json({ error: 'room_full' });
-  res.json({ code: room.code, webAppUrl: WEBAPP_URL + '?startapp=' + room.code });
+  if (!room) return res.status(404).json({ error:'not_found' });
+  if (room.state !=='lobby') return res.status(409).json({ error:'game_in_progress' });
+  if (room.players.length >= MAX_PLAYERS) return res.status(409).json({ error:'room_full' });
+  res.json({ code: room.code, webAppUrl: WEBAPP_URL +'?startapp=' + room.code });
 });
 
 // ---------- GitHub push webhook → خودکار deploy روی Railway ----------
-const RAILWAY_API = 'https://backboard.railway.app/graphql/v2';
-const RAILWAY_TOKEN = process.env.RAILWAY_TOKEN || '';
-const RAILWAY_SERVICE_ID = process.env.RAILWAY_SERVICE_ID || '';
-const RAILWAY_ENV_ID = process.env.RAILWAY_ENV_ID || '';
-const GH_WEBHOOK_SECRET = process.env.GH_WEBHOOK_SECRET || '';
+const RAILWAY_API ='https://backboard.railway.app/graphql/v2';
+const RAILWAY_TOKEN = process.env.RAILWAY_TOKEN ||'';
+const RAILWAY_SERVICE_ID = process.env.RAILWAY_SERVICE_ID ||'';
+const RAILWAY_ENV_ID = process.env.RAILWAY_ENV_ID ||'';
+const GH_WEBHOOK_SECRET = process.env.GH_WEBHOOK_SECRET ||'';
 
 app.post('/railway/deploy', (req, res) => {
   // بررسی امضای وب‌هوک گیت‌هاب
   const sig = req.headers['x-hub-signature-256'];
   if (GH_WEBHOOK_SECRET) {
-    if (!sig || !req.rawBody) return res.status(401).json({ error: 'missing signature' });
-    const computed = 'sha256=' + crypto.createHmac('sha256', GH_WEBHOOK_SECRET).update(req.rawBody).digest('hex');
-    if (computed !== sig) return res.status(401).json({ error: 'bad signature' });
+    if (!sig || !req.rawBody) return res.status(401).json({ error:'missing signature' });
+    const computed ='sha256=' + crypto.createHmac('sha256', GH_WEBHOOK_SECRET).update(req.rawBody).digest('hex');
+    if (computed !== sig) return res.status(401).json({ error:'bad signature' });
   }
-  const event = req.headers['x-github-event'] || '';
-  if (event !== 'push') return res.status(200).json({ ok: true, ignored: event });
+  const event = req.headers['x-github-event'] ||'';
+  if (event !=='push') return res.status(200).json({ ok: true, ignored: event });
   const sha = req.body && req.body.head_commit ? req.body.head_commit.id : null;
   const ref = req.body && req.body.ref;
-  if (!sha || (ref && !ref.endsWith('/main'))) return res.status(200).json({ ok: true, ignored: 'non-main push' });
+  if (!sha || (ref && !ref.endsWith('/main'))) return res.status(200).json({ ok: true, ignored:'non-main push' });
   if (!RAILWAY_TOKEN || !RAILWAY_SERVICE_ID || !RAILWAY_ENV_ID) {
     console.warn('[deploy-webhook] Railway env not configured');
-    return res.status(500).json({ error: 'railway not configured' });
+    return res.status(500).json({ error:'railway not configured' });
   }
-  const query = `mutation { serviceInstanceDeployV2(serviceId: "${RAILWAY_SERVICE_ID}", environmentId: "${RAILWAY_ENV_ID}", commitSha: "${sha}") }`;
+  const query =`mutation { serviceInstanceDeployV2(serviceId: "${RAILWAY_SERVICE_ID}", environmentId: "${RAILWAY_ENV_ID}", commitSha: "${sha}") }`;
   fetch(RAILWAY_API, {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + RAILWAY_TOKEN, 'Content-Type': 'application/json' },
+    method:'POST',
+    headers: {'Authorization':'Bearer' + RAILWAY_TOKEN,'Content-Type':'application/json' },
     body: JSON.stringify({ query }),
   })
     .then(r => r.json())
@@ -123,7 +123,7 @@ function roomSummary(code) {
     hostId: room.hostId,
     playerCount: room.players.length,
     maxPlayers: MAX_PLAYERS,
-    canJoin: room.state === 'lobby' && room.players.length < MAX_PLAYERS,
+    canJoin: room.state ==='lobby' && room.players.length < MAX_PLAYERS,
   };
 }
 
@@ -157,7 +157,7 @@ function validateInitData(initData) {
     for (const [k, v] of params.entries()) pairs.push(`${k}=${v}`);
     pairs.sort();
     const dataCheckString = pairs.join('\n');
-    const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+    const secret = crypto.createHmac('sha256','WebAppData').update(BOT_TOKEN).digest();
     const computed = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
     if (computed !== hash) return null;
     const userRaw = params.get('user');
@@ -165,7 +165,7 @@ function validateInitData(initData) {
     const user = JSON.parse(userRaw);
     return {
       id: user.id,
-      first_name: user.first_name || '',
+      first_name: user.first_name ||'',
       username: user.username || null,
       photo_url: user.photo_url || null,
     };
@@ -177,18 +177,18 @@ function validateInitData(initData) {
 
 // ---------- state broadcast ----------
 function broadcastRoom(room) {
-  const channel = 'room:' + room.code;
+  const channel ='room:' + room.code;
   for (const [, sock] of io.of('/').sockets) {
     if (sock.rooms && sock.rooms.has(channel)) {
       sock.emit('state', room.serialize(sock.data.userId));
     }
   }
   // After any state broadcast, advance AI play if it's an AI's turn
-  if (room.state === 'playing') {
+  if (room.state ==='playing') {
     const cur = room.currentPlayer();
     if (cur && cur.isBot) scheduleNextAI(room);
     else if (cur && !cur.isBot) clearAITimer(room.code); // human's turn — don't run bot logic
-  } else if (room.state === 'ended') {
+  } else if (room.state ==='ended') {
     clearAITimer(room.code);
   }
 }
@@ -204,7 +204,7 @@ io.use((socket, next) => {
   if (!user) {
     if (!initData) {
       // browser testing fallback (no initData provided)
-      user = { id: 'guest_' + crypto.randomBytes(4).toString('hex'), first_name: 'مهمان' };
+      user = { id:'guest_' + crypto.randomBytes(4).toString('hex'), first_name:'مهمان' };
     } else {
       return next(new Error('unauthorized'));
     }
@@ -228,7 +228,7 @@ function handleAction(socket, fn) {
     broadcastRoom(room); // also handles AI scheduling
   } catch (e) {
     console.error('action error:', e);
-    socket.emit('error_msg', { message: 'خطای داخلی سرور' });
+    socket.emit('error_msg', { message:'خطای داخلی سرور' });
   }
 }
 
@@ -248,7 +248,7 @@ io.on('connection', (socket) => {
     broadcastRoom(room);
   } else {
     // No room: tell the client to show the home screen
-    socket.emit('state', { viewer: null, state: 'home' });
+    socket.emit('state', { viewer: null, state:'home' });
   }
 
   // create a brand-new personal room (hosted by this user)
@@ -259,21 +259,21 @@ io.on('connection', (socket) => {
     socket.join('room:' + room.code);
     socket.emit('joined', { code: room.code });
     broadcastRoom(room);
-    if (typeof cb === 'function') cb({ code: room.code });
+    if (typeof cb ==='function') cb({ code: room.code });
   });
 
   socket.on('joinRoom', ({ code }) => {
     const room = findRoomByCode(code);
     if (!room) {
-      socket.emit('error_msg', { message: 'اتاقی با این کد پیدا نشد.' });
+      socket.emit('error_msg', { message:'اتاقی با این کد پیدا نشد.' });
       return;
     }
-    if (room.state !== 'lobby') {
-      socket.emit('error_msg', { message: 'بازی این اتاق شروع شده است.' });
+    if (room.state !=='lobby') {
+      socket.emit('error_msg', { message:'بازی این اتاق شروع شده است.' });
       return;
     }
     if (room.players.length >= MAX_PLAYERS) {
-      socket.emit('error_msg', { message: 'ظرفیت اتاق تکمیل است.' });
+      socket.emit('error_msg', { message:'ظرفیت اتاق تکمیل است.' });
       return;
     }
     leaveCurrentRoom(socket);
@@ -295,7 +295,7 @@ io.on('connection', (socket) => {
 
   socket.on('startGame', () => handleAction(socket, (room, uid) => {
     const res = room.startGame(uid);
-    if (res.ok) emitEvent(room, { type: 'gameStart' });
+    if (res.ok) emitEvent(room, { type:'gameStart' });
     return res;
   }));
 
@@ -312,14 +312,14 @@ io.on('connection', (socket) => {
     setTimeout(() => {
       const startRes = room.startGame(room.players[0].id); // host starts
       if (startRes.ok) {
-        emitEvent(room, { type: 'gameStart' });
+        emitEvent(room, { type:'gameStart' });
         broadcastRoom(room);
         // If it's an AI's turn right after start, schedule it
         const cur = room.currentPlayer();
         if (cur && cur.isBot) scheduleNextAI(room);
       }
     }, 800);
-    if (typeof cb === 'function') cb({ code: room.code });
+    if (typeof cb ==='function') cb({ code: room.code });
   });
 
   socket.on('playCard', ({ cardId, color }) => handleAction(socket, (room, uid) => {
@@ -328,9 +328,9 @@ io.on('connection', (socket) => {
     const res = room.playCard(uid, cardId, color);
     if (res.ok) {
       emitEvent(room, {
-        type: 'play', playerId: uid,
+        type:'play', playerId: uid,
         card: card ? { color: card.color, value: card.value } : null,
-        chosenColor: card && card.color === 'wild' ? color : null,
+        chosenColor: card && card.color ==='wild' ? color : null,
         won: !!res.won,
       });
     }
@@ -339,7 +339,7 @@ io.on('connection', (socket) => {
 
   socket.on('drawCard', () => handleAction(socket, (room, uid) => {
     const res = room.drawCard(uid);
-    if (res.ok) emitEvent(room, { type: 'draw', playerId: uid, count: 1 });
+    if (res.ok) emitEvent(room, { type:'draw', playerId: uid, count: 1 });
     return res;
   }));
 
@@ -347,19 +347,19 @@ io.on('connection', (socket) => {
 
   socket.on('chooseColor', ({ color }) => handleAction(socket, (room, uid) => {
     const res = room.chooseColor(uid, color);
-    if (res.ok) emitEvent(room, { type: 'color', color });
+    if (res.ok) emitEvent(room, { type:'color', color });
     return res;
   }));
 
   socket.on('callUno', () => handleAction(socket, (room, uid) => {
     const res = room.callUno(uid);
-    if (res.ok) emitEvent(room, { type: 'uno', playerId: uid });
+    if (res.ok) emitEvent(room, { type:'uno', playerId: uid });
     return res;
   }));
 
   socket.on('catchUno', ({ accusedId }) => handleAction(socket, (room, uid) => {
     const res = room.catchUno(uid, accusedId);
-    if (res.ok) emitEvent(room, { type: 'caught', catcherId: uid, accusedId, count: 2 });
+    if (res.ok) emitEvent(room, { type:'caught', catcherId: uid, accusedId, count: 2 });
     return res;
   }));
 
@@ -394,13 +394,13 @@ function leaveCurrentRoom(socket) {
 setInterval(() => {
   const now = Date.now();
   for (const room of rooms.values()) {
-    if (room.state !== 'playing' || room.colorPickPending) continue;
+    if (room.state !=='playing' || room.colorPickPending) continue;
     if (now - room.turnStartedAt > 90 * 1000) {
       const p = room.currentPlayer();
       if (!p || !p.connected) continue;
       if (!room.drawnThisTurn) {
         room.drawCard(p.id);
-        emitEvent(room, { type: 'draw', playerId: p.id, count: 1, auto: true });
+        emitEvent(room, { type:'draw', playerId: p.id, count: 1, auto: true });
       }
       room.passTurn(p.id);
       broadcastRoom(room);
@@ -409,17 +409,18 @@ setInterval(() => {
 }, 15 * 1000).unref();
 
 // ---------- AI bot players ----------
-// AI players have id 'ai_<n>'. They are added by the server when the human
+// AI players have id'ai_<n>'. They are added by the server when the human
 // host requests a "play with bots" game, or as placeholders if a human
 // disconnects. The server runs their turns on a setTimeout.
 
-const AI_NAMES = ['🤖 ربات علی', '🤖 ربات نازنین', '🤖 ربات کاوه', '🤖 ربات شیرین'];
+const AI_NAMES = ['ربات علی','ربات نازنین','ربات کاوه','ربات شیرین'];
 let aiCounter = 0;
 const aiTimers = new Map(); // roomCode -> Timeout
 
 function makeAIUser() {
   aiCounter += 1;
-  const name = AI_NAMES[(aiCounter - 1) % AI_NAMES.length] + ' #' + aiCounter;
+  const fa = String(aiCounter).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const name = AI_NAMES[(aiCounter - 1) % AI_NAMES.length] + ' ' + fa;
   return { id: 'ai_' + aiCounter, first_name: name, isBot: true };
 }
 
@@ -434,17 +435,17 @@ function addAIsToRoom(room, count) {
 
 // runAITurn: if the current player is a bot, make it act after a short delay.
 function runAITurn(room) {
-  if (room.state !== 'playing') return;
+  if (room.state !=='playing') return;
   if (room.colorPickPending) {
     // bot picks a color; prefer the most common in its hand
     const p = room.currentPlayer();
     if (!p || !p.isBot) return;
     const counts = { red: 0, yellow: 0, green: 0, blue: 0 };
     for (const c of p.hand) if (c.color && counts[c.color] !== undefined) counts[c.color]++;
-    let chosen = 'red'; let best = -1;
+    let chosen ='red'; let best = -1;
     for (const k of Object.keys(counts)) if (counts[k] > best) { best = counts[k]; chosen = k; }
     setTimeout(() => {
-      if (room.state !== 'playing' || !room.colorPickPending) return;
+      if (room.state !=='playing' || !room.colorPickPending) return;
       const cur = room.currentPlayer();
       if (!cur || cur.id !== p.id) return;
       room.chooseColor(p.id, chosen);
@@ -457,7 +458,7 @@ function runAITurn(room) {
   if (!p.isBot) return; // human's turn — wait for them
   // bot's turn: prefer a same-color or same-value card, else draw
   setTimeout(() => {
-    if (room.state !== 'playing') return;
+    if (room.state !=='playing') return;
     const cur = room.currentPlayer();
     if (!cur || cur.id !== p.id) return; // turn changed
     if (room.colorPickPending) return; // chooseColor path will handle this
@@ -470,19 +471,19 @@ function runAITurn(room) {
     const hand = cur.hand;
     const top = room.topCard();
     const playable = hand.find(c => {
-      if (c.color === 'wild') return true;
+      if (c.color ==='wild') return true;
       return c.color === room.currentColor || c.value === top.value;
     });
     if (playable) {
       let chosenColor = null;
-      if (playable.color === 'wild') {
+      if (playable.color ==='wild') {
         // pick color we have most of
         const counts = { red: 0, yellow: 0, green: 0, blue: 0 };
         for (const c of hand) if (c.color && counts[c.color] !== undefined) counts[c.color]++;
         chosenColor = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
       }
       room.playCard(p.id, playable.id, chosenColor);
-      if (cur.hand.length === 1) emitEvent(room, { type: 'uno', playerId: p.id });
+      if (cur.hand.length === 1) emitEvent(room, { type:'uno', playerId: p.id });
       broadcastRoom(room);
     } else {
       // no playable card — draw one
@@ -490,7 +491,7 @@ function runAITurn(room) {
       broadcastRoom(room);
       // schedule the passTurn after a short delay
       setTimeout(() => {
-        if (room.state !== 'playing') return;
+        if (room.state !=='playing') return;
         if (room.currentPlayerId() === p.id && room.drawnThisTurn) {
           room.passTurn(p.id);
           broadcastRoom(room);
@@ -517,16 +518,16 @@ function clearAITimer(roomCode) {
 
 
 // ---------- telegram bot (long polling) ----------
-const TG_API = 'https://api.telegram.org/bot' + BOT_TOKEN;
+const TG_API ='https://api.telegram.org/bot' + BOT_TOKEN;
 let botOffset = 0;
-try { botOffset = parseInt(process.env.BOT_OFFSET || '0', 10) || 0; } catch (e) {}
-const BOT_OFFSET_FILE = process.env.BOT_OFFSET_FILE || '/tmp/uno-bot-offset';
+try { botOffset = parseInt(process.env.BOT_OFFSET ||'0', 10) || 0; } catch (e) {}
+const BOT_OFFSET_FILE = process.env.BOT_OFFSET_FILE ||'/tmp/uno-bot-offset';
 
 async function loadBotOffset() {
   try {
     const fs = require('fs');
     if (fs.existsSync(BOT_OFFSET_FILE)) {
-      const v = parseInt(fs.readFileSync(BOT_OFFSET_FILE, 'utf8'), 10);
+      const v = parseInt(fs.readFileSync(BOT_OFFSET_FILE,'utf8'), 10);
       if (Number.isFinite(v) && v > 0) botOffset = v;
     }
   } catch (e) {}
@@ -544,13 +545,13 @@ let botShuttingDown = false;
 
 async function tgCall(method, body, opts) {
   const init = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method:'POST',
+    headers: {'Content-Type':'application/json' },
     body: JSON.stringify(body || {}),
   };
   // Attach the abort signal if the caller provided one (only used for getUpdates)
   if (opts && opts.signal) init.signal = opts.signal;
-  const res = await fetch(TG_API + '/' + method, init);
+  const res = await fetch(TG_API +'/' + method, init);
   return res.json();
 }
 
@@ -583,7 +584,7 @@ async function botLoop() {
         await new Promise(r => setTimeout(r, sleep));
       }
     } catch (e) {
-      if (botShuttingDown || (e && e.name === 'AbortError')) {
+      if (botShuttingDown || (e && e.name ==='AbortError')) {
         console.log('[bot] long-poll aborted by shutdown signal');
         return;
       }
@@ -631,40 +632,40 @@ function handleBotUpdate(upd) {
 
   // --- مسیریابی ---
   switch (cmd) {
-    case 'start':   return cmdStart(chatId, fromUser, args);
-    case 'help':    return cmdHelp(chatId);
-    case 'play':
-    case 'new':
-    case 'create':
-    case 'newgame': return cmdPlay(chatId, fromUser);
-    case 'join':
-    case 'enter':   return cmdJoin(chatId, fromUser, args);
-    case 'room':
-    case 'code':
-    case 'mycode':
-    case 'myr':     return cmdMyCode(chatId, userKey);
-    case 'list':
-    case 'rooms':
-    case 'myrooms': return cmdMyRooms(chatId, userKey);
-    case 'leave':
-    case 'exit':
-    case 'quit':    return cmdLeave(chatId, userKey);
-    case 'rules':
-    case 'قوانین':  return cmdRules(chatId);
-    case 'stats':
-    case 'profile':
-    case 'me':      return cmdStats(chatId, userKey);
-    case 'invite':
-    case 'share':   return cmdInvite(chatId, userKey);
+    case'start':   return cmdStart(chatId, fromUser, args);
+    case'help':    return cmdHelp(chatId);
+    case'play':
+    case'new':
+    case'create':
+    case'newgame': return cmdPlay(chatId, fromUser);
+    case'join':
+    case'enter':   return cmdJoin(chatId, fromUser, args);
+    case'room':
+    case'code':
+    case'mycode':
+    case'myr':     return cmdMyCode(chatId, userKey);
+    case'list':
+    case'rooms':
+    case'myrooms': return cmdMyRooms(chatId, userKey);
+    case'leave':
+    case'exit':
+    case'quit':    return cmdLeave(chatId, userKey);
+    case'rules':
+    case'قوانین':  return cmdRules(chatId);
+    case'stats':
+    case'profile':
+    case'me':      return cmdStats(chatId, userKey);
+    case'invite':
+    case'share':   return cmdInvite(chatId, userKey);
   }
 
   // --- دکمه‌های کیبورد ---
-  if (text === '🎮 ساخت اتاق جدید' || text === 'ساخت اتاق' || text === '🎮 بازی یونو') return cmdPlay(chatId, fromUser);
-  if (text === '🔑 پیوستن با کد' || text === 'پیوستن') return cmdJoinPrompt(chatId);
-  if (text === '📜 قوانین') return cmdRules(chatId);
-  if (text === '📊 آمار من') return cmdStats(chatId, userKey);
-  if (text === '🏠 اتاق من') return cmdMyCode(chatId, userKey);
-  if (text === '🚪 ترک اتاق') return cmdLeave(chatId, userKey);
+  if (text ==='ساخت اتاق جدید' || text ==='ساخت اتاق' || text ==='بازی یونو') return cmdPlay(chatId, fromUser);
+  if (text ==='پیوستن با کد' || text ==='پیوستن') return cmdJoinPrompt(chatId);
+  if (text ==='قوانین') return cmdRules(chatId);
+  if (text ==='آمار من') return cmdStats(chatId, userKey);
+  if (text ==='اتاق من') return cmdMyCode(chatId, userKey);
+  if (text ==='ترک اتاق') return cmdLeave(chatId, userKey);
 
   // --- پیام متنی که فقط کد ۴ تا ۶ کاراکتری لاتین است → پیوستن ---
   if (/^[A-Za-z0-9]{4,6}$/.test(text)) return cmdJoin(chatId, fromUser, [text.toUpperCase()]);
@@ -681,80 +682,80 @@ async function cmdStart(chatId, fromUser, args) {
   if (args && args[0] && /^[A-Za-z0-9]{4,6}$/.test(args[0])) {
     return cmdJoin(chatId, fromUser, [args[0].toUpperCase()]);
   }
-  const firstName = escapeHtml(fromUser.first_name || 'دوست من');
+  const firstName = escapeHtml(fromUser.first_name ||'دوست من');
   const text =
-    `👋 سلام <b>${firstName}</b>!\n\n` +
-    `🎲 به ربات <b>یونو آنلاین</b> خوش آمدی.\n` +
-    `اینجا می‌تونی با دوستانت یونوی آنلاین بازی کنی.\n\n` +
-    `━━━━━━━━━━━━━━━━━━\n` +
-    `📖 <b>راهنمای کامل دستورات:</b>\n━━━━━━━━━━━━━━━━━━\n\n` +
-    `🎮 <b>ساخت اتاق</b>\n` +
-    `<code>/play</code>  یا  <code>/new</code>\n` +
-    `→ یک اتاق می‌سازد و کد ۵ حرفی آن را بهت می‌دهد.\n\n` +
-    `🔑 <b>پیوستن به اتاق</b>\n` +
-    `<code>/join ABCDE</code>\n` +
-    `→ کد اتاق دوستت را وارد کن تا به او ملحق شوی.\n` +
-    `→ یا فقط کد را بفرست: <code>ABCDE</code>\n\n` +
-    `🏠 <b>کد اتاق فعلی من</b>\n` +
-    `<code>/room</code>  یا  <code>/code</code>\n` +
-    `→ اگر الان در اتاقی هستی، کدش را نشانت می‌دهد.\n\n` +
-    `📋 <b>لیست اتاق‌های فعال من</b>\n` +
-    `<code>/list</code>  یا  <code>/myrooms</code>\n` +
-    `→ همهٔ اتاق‌هایی که الان در آنها هستی.\n\n` +
-    `🚪 <b>ترک اتاق</b>\n` +
-    `<code>/leave</code>\n` +
-    `→ از اتاق فعلی‌ات خارج می‌شوی.\n\n` +
-    `📤 <b>دعوت دوستان</b>\n` +
-    `<code>/invite</code>\n` +
-    `→ یک لینک دعوت‌نامه برای اتاق فعلی‌ات می‌سازد.\n\n` +
-    `📜 <b>قوانین بازی</b>\n` +
-    `<code>/rules</code>\n` +
-    `→ خلاصه‌ای از قوانین یونو.\n\n` +
-    `📊 <b>آمار من</b>\n` +
-    `<code>/stats</code>\n` +
-    `→ اطلاعات حساب شما.\n\n` +
-    `❓ <b>راهنما</b>\n` +
-    `<code>/help</code>\n` +
-    `→ همین پیام را دوباره نشانت می‌دهد.\n\n` +
-    `━━━━━━━━━━━━━━━━━━\n` +
-    `💡 <b>شروع سریع:</b> اول بزن <code>/play</code> تا یک اتاق بسازی، بعد کدش رو برای دوستت بفرست.`;
+`سلام <b>${firstName}</b>!\n\n` +
+`به ربات <b>یونو آنلاین</b> خوش آمدی.\n` +
+`اینجا می‌تونی با دوستانت یونوی آنلاین بازی کنی.\n\n` +
+`━━━━━━━━━━━━━━━━━━\n` +
+`<b>راهنمای کامل دستورات:</b>\n━━━━━━━━━━━━━━━━━━\n\n` +
+`<b>ساخت اتاق</b>\n` +
+`<code>/play</code>  یا <code>/new</code>\n` +
+`→ یک اتاق می‌سازد و کد ۵ حرفی آن را بهت می‌دهد.\n\n` +
+`<b>پیوستن به اتاق</b>\n` +
+`<code>/join ABCDE</code>\n` +
+`→ کد اتاق دوستت را وارد کن تا به او ملحق شوی.\n` +
+`→ یا فقط کد را بفرست: <code>ABCDE</code>\n\n` +
+`<b>کد اتاق فعلی من</b>\n` +
+`<code>/room</code>  یا <code>/code</code>\n` +
+`→ اگر الان در اتاقی هستی، کدش را نشانت می‌دهد.\n\n` +
+`<b>لیست اتاق‌های فعال من</b>\n` +
+`<code>/list</code>  یا <code>/myrooms</code>\n` +
+`→ همهٔ اتاق‌هایی که الان در آنها هستی.\n\n` +
+`<b>ترک اتاق</b>\n` +
+`<code>/leave</code>\n` +
+`→ از اتاق فعلی‌ات خارج می‌شوی.\n\n` +
+`<b>دعوت دوستان</b>\n` +
+`<code>/invite</code>\n` +
+`→ یک لینک دعوت‌نامه برای اتاق فعلی‌ات می‌سازد.\n\n` +
+`<b>قوانین بازی</b>\n` +
+`<code>/rules</code>\n` +
+`→ خلاصه‌ای از قوانین یونو.\n\n` +
+`<b>آمار من</b>\n` +
+`<code>/stats</code>\n` +
+`→ اطلاعات حساب شما.\n\n` +
+`<b>راهنما</b>\n` +
+`<code>/help</code>\n` +
+`→ همین پیام را دوباره نشانت می‌دهد.\n\n` +
+`━━━━━━━━━━━━━━━━━━\n` +
+`<b>شروع سریع:</b> اول بزن <code>/play</code> تا یک اتاق بسازی، بعد کدش رو برای دوستت بفرست.`;
   await tgCall('sendMessage', {
-    chat_id: chatId, text, parse_mode: 'HTML',
+    chat_id: chatId, text, parse_mode:'HTML',
     reply_markup: {
       keyboard: [
-        [{ text: '🎮 ساخت اتاق جدید' }, { text: '🔑 پیوستن با کد' }],
-        [{ text: '🏠 اتاق من' }, { text: '🚪 ترک اتاق' }],
-        [{ text: '📜 قوانین' }, { text: '📊 آمار من' }],
+        [{ text:'ساخت اتاق جدید' }, { text:'پیوستن با کد' }],
+        [{ text:'اتاق من' }, { text:'ترک اتاق' }],
+        [{ text:'قوانین' }, { text:'آمار من' }],
       ],
       resize_keyboard: true,
     },
   }).catch(e => console.error('[bot] /start send error:', e.message));
 }
 
-async function cmdHelp(chatId) { return cmdStart(chatId, { first_name: 'دوست من' }, []); }
+async function cmdHelp(chatId) { return cmdStart(chatId, { first_name:'دوست من' }, []); }
 
 async function cmdPlay(chatId, fromUser) {
   const user = tgUserToRoomUser(fromUser);
   const room = createRoom(user);
   console.log(`[bot] /play: created room ${room.code} for ${user.id}`);
-  const link = `https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
+  const link =`https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
   const text =
-    `✅ <b>اتاق ساخته شد!</b>\n\n` +
-    `🎯 کد اتاق شما:  <code>${room.code}</code>\n\n` +
-    `👥 ظرفیت: ۲ تا ${MAX_PLAYERS} بازیکن\n` +
-    `📊 بازیکنان فعلی: ۱ نفر (خودتان)\n\n` +
-    `━━━━━━━━━━━━━━━━━━\n` +
-    `<b>گام بعدی:</b>\n` +
-    `۱. کد بالا را برای دوستانتان بفرستید.\n` +
-    `۲. یا دکمهٔ «باز کردن اتاق» را بزنید تا وارد بازی شوید.\n` +
-    `۳. وقتی حداقل ۲ بازیکن باشند، میزبان می‌تواند بازی را شروع کند.\n\n` +
-    `💡 دوستتان برای پیوستن در همین ربات می‌فرستد: <code>/join ${room.code}</code>`;
+`<b>اتاق ساخته شد!</b>\n\n` +
+`کد اتاق شما:  <code>${room.code}</code>\n\n` +
+`ظرفیت: ۲ تا ${MAX_PLAYERS} بازیکن\n` +
+`بازیکنان فعلی: ۱ نفر (خودتان)\n\n` +
+`━━━━━━━━━━━━━━━━━━\n` +
+`<b>گام بعدی:</b>\n` +
+`۱. کد بالا را برای دوستانتان بفرستید.\n` +
+`۲. یا دکمهٔ «باز کردن اتاق» را بزنید تا وارد بازی شوید.\n` +
+`۳. وقتی حداقل ۲ بازیکن باشند، میزبان می‌تواند بازی را شروع کند.\n\n` +
+`دوستتان برای پیوستن در همین ربات می‌فرستد: <code>/join ${room.code}</code>`;
   await tgCall('sendMessage', {
-    chat_id: chatId, text, parse_mode: 'HTML',
+    chat_id: chatId, text, parse_mode:'HTML',
     reply_markup: {
       inline_keyboard: [
-        [{ text: '🎮 باز کردن اتاق', web_app: { url: link } }],
-        [{ text: '📤 اشتراک‌گذاری کد', switch_inline_query: room.code }],
+        [{ text:'باز کردن اتاق', web_app: { url: link } }],
+        [{ text:'اشتراک‌گذاری کد', switch_inline_query: room.code }],
       ],
     },
   }).catch(e => console.error('[bot] /play send error:', e.message));
@@ -764,11 +765,11 @@ async function cmdJoinPrompt(chatId) {
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-      `🔑 <b>پیوستن به اتاق</b>\n\n` +
-      `کد ۵ حرفی اتاق را بفرست.\n` +
-      `مثال: <code>ABCDE</code>\n\n` +
-      `یا دستور کامل: <code>/join ABCDE</code>`,
-    parse_mode: 'HTML',
+`<b>پیوستن به اتاق</b>\n\n` +
+`کد ۵ حرفی اتاق را بفرست.\n` +
+`مثال: <code>ABCDE</code>\n\n` +
+`یا دستور کامل: <code>/join ABCDE</code>`,
+    parse_mode:'HTML',
   }).catch(e => console.error('[bot] /join prompt error:', e.message));
 }
 
@@ -776,56 +777,56 @@ async function cmdJoin(chatId, fromUser, args) {
   if (!args || !args[0]) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `⚠️ <b>کد اتاق را وارد نکردی!</b>\n\nنحوهٔ استفاده:\n<code>/join ABCDE</code>\n\nیا فقط کد را بفرست: <code>ABCDE</code>`,
-      parse_mode: 'HTML',
+      text:`<b>کد اتاق را وارد نکردی!</b>\n\nنحوهٔ استفاده:\n<code>/join ABCDE</code>\n\nیا فقط کد را بفرست: <code>ABCDE</code>`,
+      parse_mode:'HTML',
     }).catch(() => {});
   }
   const code = String(args[0]).toUpperCase().trim();
   if (!/^[A-Z0-9]{4,6}$/.test(code)) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `❌ کد «<code>${code}</code>» معتبر نیست. کد اتاق ۴ تا ۶ کاراکتر (حرف و عدد) است.\n\nمثال درست: <code>ABCDE</code>`,
-      parse_mode: 'HTML',
+      text:`کد «<code>${code}</code>» معتبر نیست. کد اتاق ۴ تا ۶ کاراکتر (حرف و عدد) است.\n\nمثال درست: <code>ABCDE</code>`,
+      parse_mode:'HTML',
     }).catch(() => {});
   }
   const room = rooms.get(code);
   if (!room) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `❌ اتاقی با کد <code>${code}</code> پیدا نشد.\n\nممکن است:\n• منقضی شده باشد (اتاق‌ها ۶ ساعت بی‌استفاده می‌مانند)\n• کد را اشتباه وارد کرده باشی\n\nاز میزبان بخواه دوباره اتاق بسازد: <code>/play</code>`,
-      parse_mode: 'HTML',
+      text:`اتاقی با کد <code>${code}</code> پیدا نشد.\n\nممکن است:\n• منقضی شده باشد (اتاق‌ها ۶ ساعت بی‌استفاده می‌مانند)\n• کد را اشتباه وارد کرده باشی\n\nاز میزبان بخواه دوباره اتاق بسازد: <code>/play</code>`,
+      parse_mode:'HTML',
     }).catch(() => {});
   }
-  if (room.state !== 'lobby') {
+  if (room.state !=='lobby') {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `⏳ اتاق <code>${room.code}</code> در حال بازی است. صبر کن تا دست تمام شود.`,
-      parse_mode: 'HTML',
+      text:`اتاق <code>${room.code}</code> در حال بازی است. صبر کن تا دست تمام شود.`,
+      parse_mode:'HTML',
     }).catch(() => {});
   }
   if (room.players.length >= MAX_PLAYERS) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `🚫 اتاق <code>${room.code}</code> پُر است (${room.players.length}/${MAX_PLAYERS}).`,
-      parse_mode: 'HTML',
+      text:`اتاق <code>${room.code}</code> پُر است (${room.players.length}/${MAX_PLAYERS}).`,
+      parse_mode:'HTML',
     }).catch(() => {});
   }
   const user = tgUserToRoomUser(fromUser);
   userRoom.set(user.id, room.code);
   console.log(`[bot] /join: user ${user.id} queued for room ${room.code}`);
-  const link = `https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
-  const hostName = room.players[0] ? escapeHtml(room.players[0].name) : '—';
+  const link =`https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
+  const hostName = room.players[0] ? escapeHtml(room.players[0].name) :'—';
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-      `🚪 <b>اتاق پیدا شد!</b>\n\n` +
-      `🎯 کد: <code>${room.code}</code>\n` +
-      `👥 بازیکنان فعلی: ${room.players.length} از ${MAX_PLAYERS}\n` +
-      `👑 میزبان: ${hostName}\n\n` +
-      `برای ورود روی دکمهٔ زیر بزن:`,
-    parse_mode: 'HTML',
+`<b>اتاق پیدا شد!</b>\n\n` +
+`کد: <code>${room.code}</code>\n` +
+`بازیکنان فعلی: ${room.players.length} از ${MAX_PLAYERS}\n` +
+`میزبان: ${hostName}\n\n` +
+`برای ورود روی دکمهٔ زیر بزن:`,
+    parse_mode:'HTML',
     reply_markup: {
-      inline_keyboard: [[{ text: '🎮 پیوستن به اتاق', web_app: { url: link } }]],
+      inline_keyboard: [[{ text:'پیوستن به اتاق', web_app: { url: link } }]],
     },
   }).catch(e => console.error('[bot] /join send error:', e.message));
 }
@@ -835,8 +836,8 @@ async function cmdMyCode(chatId, userKey) {
   if (!code) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `ℹ️ الان در هیچ اتاقی نیستی.\n\nبرای ساخت اتاق: <code>/play</code>\nبرای پیوستن: <code>/join ABCDE</code>`,
-      parse_mode: 'HTML',
+      text:`ℹ الان در هیچ اتاقی نیستی.\n\nبرای ساخت اتاق: <code>/play</code>\nبرای پیوستن: <code>/join ABCDE</code>`,
+      parse_mode:'HTML',
     }).catch(() => {});
   }
   const room = rooms.get(code);
@@ -844,25 +845,25 @@ async function cmdMyCode(chatId, userKey) {
     userRoom.delete(userKey);
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text: `ℹ️ اتاق قبلی‌ات منقضی شده. <code>/play</code> برای ساخت اتاق جدید.`,
-      parse_mode: 'HTML',
+      text:`ℹ اتاق قبلی‌ات منقضی شده. <code>/play</code> برای ساخت اتاق جدید.`,
+      parse_mode:'HTML',
     }).catch(() => {});
   }
-  const link = `https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
-  const status = room.state === 'lobby' ? '🟢 منتظر بازیکن' : room.state === 'playing' ? '🔵 در حال بازی' : '🔴 پایان‌یافته';
-  const hostName = room.players[0] ? escapeHtml(room.players[0].name) : '—';
+  const link =`https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
+  const status = room.state ==='lobby' ?'منتظر بازیکن' : room.state ==='playing' ?'در حال بازی' :'پایان‌یافته';
+  const hostName = room.players[0] ? escapeHtml(room.players[0].name) :'—';
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-      `🏠 <b>اتاق فعلی شما</b>\n\n` +
-      `🎯 کد: <code>${room.code}</code>\n` +
-      `📊 وضعیت: ${status}\n` +
-      `👥 بازیکنان: ${room.players.length} از ${MAX_PLAYERS}\n` +
-      `👑 میزبان: ${hostName}\n\n` +
-      `👇 روی دکمهٔ زیر بزن تا وارد بازی شوی:`,
-    parse_mode: 'HTML',
+`<b>اتاق فعلی شما</b>\n\n` +
+`کد: <code>${room.code}</code>\n` +
+`وضعیت: ${status}\n` +
+`بازیکنان: ${room.players.length} از ${MAX_PLAYERS}\n` +
+`میزبان: ${hostName}\n\n` +
+`روی دکمهٔ زیر بزن تا وارد بازی شوی:`,
+    parse_mode:'HTML',
     reply_markup: {
-      inline_keyboard: [[{ text: '🎮 باز کردن اتاق', web_app: { url: link } }]],
+      inline_keyboard: [[{ text:'باز کردن اتاق', web_app: { url: link } }]],
     },
   }).catch(e => console.error('[bot] /room send error:', e.message));
 }
@@ -872,15 +873,15 @@ async function cmdMyRooms(chatId, userKey) {
   let lines;
   if (inRoom && rooms.has(inRoom)) {
     const r = rooms.get(inRoom);
-    lines = [`🏠 <code>${r.code}</code> — وضعیت: ${r.state} — ${r.players.length}/${MAX_PLAYERS} بازیکن`];
+    lines = [`<code>${r.code}</code> — وضعیت: ${r.state} — ${r.players.length}/${MAX_PLAYERS} بازیکن`];
   } else {
     if (inRoom) userRoom.delete(userKey);
     lines = ['(الان در هیچ اتاقی نیستی)'];
   }
   await tgCall('sendMessage', {
     chat_id: chatId,
-    text: `📋 <b>اتاق‌های فعال شما</b>\n\n${lines.join('\n')}\n\n💡 با <code>/play</code> اتاق جدید بساز یا <code>/join ABCDE</code> به اتاق دوستت بپیوند.`,
-    parse_mode: 'HTML',
+    text:`<b>اتاق‌های فعال شما</b>\n\n${lines.join('\n')}\n\n با <code>/play</code> اتاق جدید بساز یا <code>/join ABCDE</code> به اتاق دوستت بپیوند.`,
+    parse_mode:'HTML',
   }).catch(() => {});
 }
 
@@ -888,7 +889,7 @@ async function cmdLeave(chatId, userKey) {
   const code = userRoom.get(userKey);
   if (!code) {
     return tgCall('sendMessage', {
-      chat_id: chatId, text: 'ℹ️ الان در هیچ اتاقی نیستی.', parse_mode: 'HTML',
+      chat_id: chatId, text:'ℹ الان در هیچ اتاقی نیستی.', parse_mode:'HTML',
     }).catch(() => {});
   }
   const room = rooms.get(code);
@@ -898,7 +899,7 @@ async function cmdLeave(chatId, userKey) {
   }
   userRoom.delete(userKey);
   await tgCall('sendMessage', {
-    chat_id: chatId, text: `✅ از اتاق <code>${code}</code> خارج شدی.`, parse_mode: 'HTML',
+    chat_id: chatId, text:`از اتاق <code>${code}</code> خارج شدی.`, parse_mode:'HTML',
   }).catch(() => {});
 }
 
@@ -906,30 +907,30 @@ async function cmdInvite(chatId, userKey) {
   const code = userRoom.get(userKey);
   if (!code || !rooms.has(code)) {
     return tgCall('sendMessage', {
-      chat_id: chatId, text: 'ℹ️ اول باید یک اتاق بسازی: <code>/play</code>', parse_mode: 'HTML',
+      chat_id: chatId, text:'ℹ اول باید یک اتاق بسازی: <code>/play</code>', parse_mode:'HTML',
     }).catch(() => {});
   }
-  const link = `https://t.me/${BOT_USERNAME}?startapp=${code}`;
+  const link =`https://t.me/${BOT_USERNAME}?startapp=${code}`;
   await tgCall('sendMessage', {
     chat_id: chatId,
-    text: `📤 <b>دعوت دوستان به اتاق</b>\n\n🎯 کد: <code>${code}</code>\n\n🔗 <b>لینک دعوت:</b>\n${link}\n\nاین لینک را برای دوستانت بفرست. وقتی باز کنند، مستقیماً وارد اتاق تو می‌شوند.`,
-    parse_mode: 'HTML',
+    text:`<b>دعوت دوستان به اتاق</b>\n\n کد: <code>${code}</code>\n\n <b>لینک دعوت:</b>\n${link}\n\nاین لینک را برای دوستانت بفرست. وقتی باز کنند، مستقیماً وارد اتاق تو می‌شوند.`,
+    parse_mode:'HTML',
   }).catch(() => {});
 }
 
 async function cmdRules(chatId) {
   const text =
-    `📜 <b>قوانین یونو</b>\n\n` +
-    `🎯 <b>هدف:</b> اولین نفری که همهٔ کارت‌هایش را بازی کند.\n\n` +
-    `▶️ <b>نوبت:</b> کارتی بازی کن که هم‌رنگ، هم‌عدد یا هم‌نماد کارت روی میز باشد. اگر نداشتی، یک کارت بردار.\n\n` +
-    `⛔ <b>رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.\n` +
-    `🔄 <b>معکوس (Reverse):</b> جهت بازی برعکس می‌شود.\n` +
-    `🃏 <b>+۲ (Draw Two):</b> بازیکن بعدی ۲ کارت برمی‌دارد و نوبتش رد می‌شود.\n` +
-    `🌈 <b>وایلد (Wild):</b> رنگ دلخواه انتخاب می‌کنی.\n` +
-    `😱 <b>وایلد +۴:</b> رنگ انتخاب می‌کنی و بازیکن بعدی ۴ کارت جریمه می‌گیرد.\n\n` +
-    `📢 <b>یونو!</b> وقتی یک کارت برایت مانده، دکمهٔ «یونو!» را بزن. اگر کسی قبل از نوبت بعدی متوجه شود و «بگیرش» بزند، ۲ کارت جریمه می‌گیری!\n\n` +
-    `🏆 <b>امتیاز:</b> برنده، امتیاز کارت‌های دیگران را می‌گیرد (عددی = خودش، ویژه = ۲۰، وایلد = ۵۰).`;
-  await tgCall('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' }).catch(() => {});
+`<b>قوانین یونو</b>\n\n` +
+`<b>هدف:</b> اولین نفری که همهٔ کارت‌هایش را بازی کند.\n\n` +
+`▶ <b>نوبت:</b> کارتی بازی کن که هم‌رنگ، هم‌عدد یا هم‌نماد کارت روی میز باشد. اگر نداشتی، یک کارت بردار.\n\n` +
+`<b>رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.\n` +
+`<b>معکوس (Reverse):</b> جهت بازی برعکس می‌شود.\n` +
+`<b>+۲ (Draw Two):</b> بازیکن بعدی ۲ کارت برمی‌دارد و نوبتش رد می‌شود.\n` +
+`<b>وایلد (Wild):</b> رنگ دلخواه انتخاب می‌کنی.\n` +
+`<b>وایلد +۴:</b> رنگ انتخاب می‌کنی و بازیکن بعدی ۴ کارت جریمه می‌گیرد.\n\n` +
+`<b>یونو!</b> وقتی یک کارت برایت مانده، دکمهٔ «یونو!» را بزن. اگر کسی قبل از نوبت بعدی متوجه شود و «بگیرش» بزند، ۲ کارت جریمه می‌گیری!\n\n` +
+`<b>امتیاز:</b> برنده، امتیاز کارت‌های دیگران را می‌گیرد (عددی = خودش، ویژه = ۲۰، وایلد = ۵۰).`;
+  await tgCall('sendMessage', { chat_id: chatId, text, parse_mode:'HTML' }).catch(() => {});
 }
 
 async function cmdStats(chatId, userKey) {
@@ -938,14 +939,14 @@ async function cmdStats(chatId, userKey) {
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-      `📊 <b>آمار شما</b>\n\n` +
-      `👤 شناسه: <code>${userKey}</code>\n` +
-      `🏠 اتاق فعلی: ${inRoom ? '<code>' + code + '</code>' : '—'}\n` +
-      `📈 تعداد بازی‌ها: (به‌زودی)\n` +
-      `🏆 بردها: (به‌زودی)\n` +
-      `⭐ مجموع امتیاز: (به‌زودی)\n\n` +
-      `💡 برای شروع بازی: <code>/play</code>`,
-    parse_mode: 'HTML',
+`<b>آمار شما</b>\n\n` +
+`شناسه: <code>${userKey}</code>\n` +
+`اتاق فعلی: ${inRoom ?'<code>' + code +'</code>' :'—'}\n` +
+`تعداد بازی‌ها: (به‌زودی)\n` +
+`بردها: (به‌زودی)\n` +
+`مجموع امتیاز: (به‌زودی)\n\n` +
+`برای شروع بازی: <code>/play</code>`,
+    parse_mode:'HTML',
   }).catch(() => {});
 }
 
@@ -953,53 +954,53 @@ async function cmdUnknown(chatId, text) {
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-      `🤔 پیام «<i>${escapeHtml(text.slice(0, 60))}</i>» را نفهمیدم.\n\n` +
-      `📌 <b>دستورهای موجود:</b>\n` +
-      `<code>/play</code> — ساخت اتاق جدید\n` +
-      `<code>/join ABCDE</code> — پیوستن به اتاق\n` +
-      `<code>/room</code> — کد اتاق فعلی من\n` +
-      `<code>/list</code> — لیست اتاق‌های فعال\n` +
-      `<code>/leave</code> — ترک اتاق\n` +
-      `<code>/invite</code> — لینک دعوت\n` +
-      `<code>/rules</code> — قوانین بازی\n` +
-      `<code>/stats</code> — آمار من\n` +
-      `<code>/help</code> — راهنمای کامل\n\n` +
-      `یا از کیبورد پایین یکی از گزینه‌ها را انتخاب کن.`,
-    parse_mode: 'HTML',
+`پیام «<i>${escapeHtml(text.slice(0, 60))}</i>» را نفهمیدم.\n\n` +
+`<b>دستورهای موجود:</b>\n` +
+`<code>/play</code> — ساخت اتاق جدید\n` +
+`<code>/join ABCDE</code> — پیوستن به اتاق\n` +
+`<code>/room</code> — کد اتاق فعلی من\n` +
+`<code>/list</code> — لیست اتاق‌های فعال\n` +
+`<code>/leave</code> — ترک اتاق\n` +
+`<code>/invite</code> — لینک دعوت\n` +
+`<code>/rules</code> — قوانین بازی\n` +
+`<code>/stats</code> — آمار من\n` +
+`<code>/help</code> — راهنمای کامل\n\n` +
+`یا از کیبورد پایین یکی از گزینه‌ها را انتخاب کن.`,
+    parse_mode:'HTML',
   }).catch(() => {});
 }
 
 function tgUserToRoomUser(tgUser) {
   return {
     id: String(tgUser.id), // همان شناسه‌ای که initData در Mini App می‌فرستد
-    first_name: tgUser.first_name || 'بازیکن',
+    first_name: tgUser.first_name ||'بازیکن',
     username: tgUser.username || null,
     photo_url: tgUser.photo_url || null,
   };
 }
 
 function escapeHtml(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return String(s == null ?'' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[c]));
 }
 
-const WEBAPP_URL = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN : 'http://localhost:' + PORT);
+const WEBAPP_URL = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ?'https://' + process.env.RAILWAY_PUBLIC_DOMAIN :'http://localhost:' + PORT);
 
 // ---------- start ----------
 server.listen(PORT, () => {
-  console.log(`✅ UNO server listening on port ${PORT}`);
+  console.log(` UNO server listening on port ${PORT}`);
   console.log(`   WebApp URL: ${WEBAPP_URL}`);
   if (BOT_TOKEN) {
     tgCall('getMe', {}).then(res => {
       if (res.ok) {
-        console.log(`🤖 Bot connected: @${res.result.username}`);
+        console.log(` Bot connected: @${res.result.username}`);
         if (!BOT_USERNAME) BOT_USERNAME = res.result.username;
         botLoop();
       } else {
-        console.error('❌ Bot token invalid:', JSON.stringify(res));
+        console.error(' Bot token invalid:', JSON.stringify(res));
       }
     });
   } else {
-    console.log('⚠️  BOT_TOKEN not set — bot disabled');
+    console.log('  BOT_TOKEN not set — bot disabled');
   }
 });
 
