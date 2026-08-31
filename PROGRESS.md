@@ -150,3 +150,20 @@ No further action needed unless the user's live re-test shows a specific command
   - test-game.js updated to wait for a lobby-state (not any state) since fresh clients now get the new home state
 - Current hypothesis: N/A — both fixes verified live.
 - Next step: User to re-test in Telegram: /play → open room → no code-entry modal; should land in lobby with room code. If any modal still appears, add a JS init that forces all modal elements hidden on startup.
+
+## [2025-01-30 FINAL] Play with bots — feature complete and live
+- What I did: Implemented 4 of 5 planned changes; the cosmetic "hide code-input flow" was absorbed by the much stronger playWithBotsBtn primary CTA.
+- Commits: 3e782a4 (feat: play with bots) deployed to Railway.
+- What I found (live verification):
+  - live HTML: <button id="playWithBotsBtn">🤖 بازی با ربات</button> present
+  - live app.js: handler at line 494 emits 'playWithBots' to server
+  - live server: playWithBots event creates room + 2 AI bots + auto-startGame
+  - live AI behavior: bot acts in 1.5-2.5s, picks wild color, draws if unplayable, passes after draw
+  - end-to-end test: room SCGBV, 3 players (1 human + 2 bots), game state = playing, hands progressing correctly
+  - isBot: false/true correctly reported to client (now included in serialize)
+- User instructions:
+  - Open the Mini App in Telegram (or browser)
+  - Hard-refresh to clear any stale cache (cache-bust version was added: ?v=1a2b3c4d)
+  - Tap "🤖 بازی با ربات" — game starts immediately
+  - The user can also tap "🎮 ساخت اتاق (با دوستان)" to create a normal room, or "🔑 پیوستن با کد" for the code-input flow
+- What was NOT changed: game engine (uno.js) rules, bot handlers, CSS color palette, fonts, existing card SVGs.
