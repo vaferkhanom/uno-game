@@ -67,20 +67,23 @@ body { position: fixed; inset: 0; }
 @keyframes screenIn { from { opacity: 0; transform: translateY(18px) scale(.98);} to { opacity: 1; transform: none;} }
 
 /* ===== #game: single grid for everything inside ===== */
-#game {
+/* نمایش فقط با .active — همان الگوی .screen.active؛ بدون این، #game به‌خاطر
+   specificity بالای id همیشه روی .screen/.screen.active غلبه می‌کند */
+#game.active {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   grid-template-areas:
     "topbar"
     "table"
     "actions"
     "hand";
+  height: 100dvh;
   gap: 0;
-  padding: calc(8px + var(--sat)) 0 0;
+  padding: calc(var(--sat)) 0 calc(var(--sab)) 0;
   overflow: hidden;
 }
-#game > * { min-height: 0; }
+#game.active > * { min-height: 0; }
 
 /* ===== شیشه ===== */
 .card-glass {
@@ -206,21 +209,6 @@ body { position: fixed; inset: 0; }
 .lobby-hint { text-align: center; font-size: 13px; color: var(--text-dim); }
 .lobby-join { width: 100%; margin-top: 14px; padding: 11px; font-size: 14px; position: relative; z-index: 1; }
 
-
-/* ===== صفحه بازی ===== */
-#game {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  grid-template-areas:
-    "topbar"
-    "table"
-    "actions"
-    "hand";
-  height: 100dvh;
-  padding: calc(var(--sat)) 0 calc(var(--sab)) 0;
-  overflow: hidden;
-}
-#game.active { display: grid; }
 
 /* ── نوار بالا ── */
 .game-topbar {

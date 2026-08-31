@@ -137,6 +137,8 @@
     });
 
     socket.on('event', handleEvent);
+    // خروج از اتاق: سرور بعد از leaveRoom این ایونت را می‌فرستد → برگرد به خانه
+    socket.on('left', () => { state = null; hideWinner(); showScreen('home'); });
     socket.on('error_msg', (e) => { toast(e.message || 'خطا', 'bad'); SFX.error(); });
     socket.on('disconnect', () => toast('اتصال قطع شد… در حال تلاش مجدد', 'bad'));
   }
