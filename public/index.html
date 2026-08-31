@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b0b1e">
   <title>🎲 یونو آنلاین</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=1a2b3c4d">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23ff3b3b'/><text x='50' y='66' font-size='40' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>U</text></svg>">
 </head>
 <body>
@@ -43,15 +43,18 @@
     <div class="home-hero">
       <div class="hero-cards" id="heroCards"></div>
       <h1 class="hero-title">یونو <span class="grad-text">آنلاین</span></h1>
-      <p class="hero-sub">یک اتاق بسازید و کد آن را برای دوستانتان بفرستید، یا با کد دوستتان وارد شوید.</p>
+      <p class="hero-sub">با هوش مصنوعی تمرین کن، یا با دوستانت بازی کن!</p>
     </div>
 
     <div class="home-actions">
-      <button class="btn btn-primary btn-big" id="myRoomBtn">
+      <button class="btn btn-primary btn-big" id="playWithBotsBtn">
         <span class="btn-glow"></span>
-        🎮 ساخت اتاق جدید
+        🤖 بازی با ربات
       </button>
-      <button class="btn btn-secondary btn-big" id="joinBtn">🔑 پیوستن با کد</button>
+      <button class="btn btn-secondary btn-big" id="myRoomBtn">
+        🎮 ساخت اتاق (با دوستان)
+      </button>
+      <button class="btn btn-small btn-secondary" id="joinBtn">🔑 پیوستن با کد</button>
     </div>
 
     <div class="home-rules card-glass">
@@ -183,9 +186,9 @@
 
   <div id="toastWrap"></div>
 
-  <script src="/vendor/socket.io.min.js"></script>
-  <script src="/js/cards.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="/vendor/socket.io.min.js?v=1a2b3c4d"></script>
+  <script src="/js/cards.js?v=1a2b3c4d"></script>
+  <script src="/js/app.js?v=1a2b3c4d"></script>
 </body>
 </html>
 

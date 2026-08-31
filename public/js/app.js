@@ -491,6 +491,13 @@
   // ---------- اتصال دکمه‌ها ----------
   function wireUI() {
     // خانه
+    $('playWithBotsBtn').onclick = () => {
+      // شروع فوری بازی با ۲ ربات — کاربر مستقیماً وارد میز بازی می‌شود
+      SFX.play();
+      socket.emit('playWithBots', ({ code }) => {
+        if (code) { myRoomCode = code; toast('در حال آماده‌سازی بازی... 🎲', 'good'); }
+      });
+    };
     $('myRoomBtn').onclick = () => {
       // ساخت یک اتاق جدید (اگر قبلاً در اتاقی هستیم، از آن خارج می‌شویم)
       SFX.play();

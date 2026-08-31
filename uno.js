@@ -88,6 +88,7 @@ class Room {
       hand: [],
       isHost: false,
       connected: true,
+      isBot: !!user.isBot,
     };
   }
 
@@ -422,6 +423,7 @@ class Room {
         username: p.username,
         avatar: p.avatar,
         isHost: p.id === String(this.hostId),
+        isBot: !!p.isBot,
         connected: p.connected,
         handCount: p.hand.length,
         score: this.roundScores[p.id] || 0,

@@ -135,6 +135,7 @@ setInterval(() => {
       if (now - room.lastActivity > 6 * 60 * 60 * 1000 || room.players.length === 0) {
         rooms.delete(code);
         for (const [uid, c] of userRoom) if (c === code) userRoom.delete(uid);
+        clearAITimer(code);
         console.log(`[cleanup] removed idle room ${code}`);
       }
     }
@@ -182,6 +183,14 @@ function broadcastRoom(room) {
       sock.emit('state', room.serialize(sock.data.userId));
     }
   }
+  // After any state broadcast, advance AI play if it's an AI's turn
+  if (room.state === 'playing') {
+    const cur = room.currentPlayer();
+    if (cur && cur.isBot) scheduleNextAI(room);
+    else if (cur && !cur.isBot) clearAITimer(room.code); // human's turn — don't run bot logic
+  } else if (room.state === 'ended') {
+    clearAITimer(room.code);
+  }
 }
 
 function emitEvent(room, event) {
@@ -216,7 +225,7 @@ function handleAction(socket, fn) {
       socket.emit('error_msg', { message: result.error });
       return;
     }
-    broadcastRoom(room);
+    broadcastRoom(room); // also handles AI scheduling
   } catch (e) {
     console.error('action error:', e);
     socket.emit('error_msg', { message: 'خطای داخلی سرور' });
@@ -289,6 +298,29 @@ io.on('connection', (socket) => {
     if (res.ok) emitEvent(room, { type: 'gameStart' });
     return res;
   }));
+
+  // playWithBots: create a room, add 2 AI opponents, auto-start the game
+  socket.on('playWithBots', (cb) => {
+    leaveCurrentRoom(socket);
+    const room = createRoom(user);
+    // Add 2 AI bots so the human has company
+    addAIsToRoom(room, 2);
+    socket.join('room:' + room.code);
+    socket.emit('joined', { code: room.code });
+    broadcastRoom(room);
+    // Auto-start the game after a short delay so the client has time to receive the joined event
+    setTimeout(() => {
+      const startRes = room.startGame(room.players[0].id); // host starts
+      if (startRes.ok) {
+        emitEvent(room, { type: 'gameStart' });
+        broadcastRoom(room);
+        // If it's an AI's turn right after start, schedule it
+        const cur = room.currentPlayer();
+        if (cur && cur.isBot) scheduleNextAI(room);
+      }
+    }, 800);
+    if (typeof cb === 'function') cb({ code: room.code });
+  });
 
   socket.on('playCard', ({ cardId, color }) => handleAction(socket, (room, uid) => {
     const me = room.playerById(uid);
@@ -375,6 +407,113 @@ setInterval(() => {
     }
   }
 }, 15 * 1000).unref();
+
+// ---------- AI bot players ----------
+// AI players have id 'ai_<n>'. They are added by the server when the human
+// host requests a "play with bots" game, or as placeholders if a human
+// disconnects. The server runs their turns on a setTimeout.
+
+const AI_NAMES = ['🤖 ربات علی', '🤖 ربات نازنین', '🤖 ربات کاوه', '🤖 ربات شیرین'];
+let aiCounter = 0;
+const aiTimers = new Map(); // roomCode -> Timeout
+
+function makeAIUser() {
+  aiCounter += 1;
+  const name = AI_NAMES[(aiCounter - 1) % AI_NAMES.length] + ' #' + aiCounter;
+  return { id: 'ai_' + aiCounter, first_name: name, isBot: true };
+}
+
+function addAIsToRoom(room, count) {
+  for (let i = 0; i < count; i++) {
+    if (room.players.length >= MAX_PLAYERS) break;
+    const u = makeAIUser();
+    const res = room.addPlayer(u);
+    if (res.error) break;
+  }
+}
+
+// runAITurn: if the current player is a bot, make it act after a short delay.
+function runAITurn(room) {
+  if (room.state !== 'playing') return;
+  if (room.colorPickPending) {
+    // bot picks a color; prefer the most common in its hand
+    const p = room.currentPlayer();
+    if (!p || !p.isBot) return;
+    const counts = { red: 0, yellow: 0, green: 0, blue: 0 };
+    for (const c of p.hand) if (c.color && counts[c.color] !== undefined) counts[c.color]++;
+    let chosen = 'red'; let best = -1;
+    for (const k of Object.keys(counts)) if (counts[k] > best) { best = counts[k]; chosen = k; }
+    setTimeout(() => {
+      if (room.state !== 'playing' || !room.colorPickPending) return;
+      const cur = room.currentPlayer();
+      if (!cur || cur.id !== p.id) return;
+      room.chooseColor(p.id, chosen);
+      broadcastRoom(room); // auto-schedules next AI
+    }, 1200);
+    return;
+  }
+  const p = room.currentPlayer();
+  if (!p) return;
+  if (!p.isBot) return; // human's turn — wait for them
+  // bot's turn: prefer a same-color or same-value card, else draw
+  setTimeout(() => {
+    if (room.state !== 'playing') return;
+    const cur = room.currentPlayer();
+    if (!cur || cur.id !== p.id) return; // turn changed
+    if (room.colorPickPending) return; // chooseColor path will handle this
+    if (room.drawnThisTurn) {
+      // already drew — must pass
+      room.passTurn(p.id);
+      broadcastRoom(room);
+      return;
+    }
+    const hand = cur.hand;
+    const top = room.topCard();
+    const playable = hand.find(c => {
+      if (c.color === 'wild') return true;
+      return c.color === room.currentColor || c.value === top.value;
+    });
+    if (playable) {
+      let chosenColor = null;
+      if (playable.color === 'wild') {
+        // pick color we have most of
+        const counts = { red: 0, yellow: 0, green: 0, blue: 0 };
+        for (const c of hand) if (c.color && counts[c.color] !== undefined) counts[c.color]++;
+        chosenColor = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+      }
+      room.playCard(p.id, playable.id, chosenColor);
+      if (cur.hand.length === 1) emitEvent(room, { type: 'uno', playerId: p.id });
+      broadcastRoom(room);
+    } else {
+      // no playable card — draw one
+      room.drawCard(p.id);
+      broadcastRoom(room);
+      // schedule the passTurn after a short delay
+      setTimeout(() => {
+        if (room.state !== 'playing') return;
+        if (room.currentPlayerId() === p.id && room.drawnThisTurn) {
+          room.passTurn(p.id);
+          broadcastRoom(room);
+        }
+      }, 800);
+    }
+  }, 1500); // 1.5s per bot turn feels natural
+}
+
+function scheduleNextAI(room) {
+  // clear any prior timer for this room
+  if (aiTimers.has(room.code)) clearTimeout(aiTimers.get(room.code));
+  const t = setTimeout(() => runAITurn(room), 2500);
+  aiTimers.set(room.code, t);
+}
+
+// On a room ending, clear its timer
+function clearAITimer(roomCode) {
+  if (aiTimers.has(roomCode)) {
+    clearTimeout(aiTimers.get(roomCode));
+    aiTimers.delete(roomCode);
+  }
+}
 
 
 // ---------- telegram bot (long polling) ----------
