@@ -182,3 +182,25 @@ No further action needed unless the user's live re-test shows a specific command
 - game-topbar already had grid-area:topbar from previous work
 - Committed: 63a688e | Pushed -> Railway (uptime: 167s)
 - E2E: RESTART TEST PASSED on production
+
+## [2026-08-31 REGRESSION-FIX] #game always visible on top of every screen — duplicate rule blocks
+- Bug: game screen rendered on top of home (hero, buttons, rules visible under floating game HUD)
+- Root cause: redesign commit 63a688e ADDED a new #game block (line 70) but never deleted the
+  pre-existing #game block (line 211). Two unconditional `display: grid` on an id selector beat
+  `.screen/.screen.active` (specificity 1-0-0 > 0-2-0), so #game was ALWAYS visible. The
+  `#game.active { display: grid; }` that followed the old block was dead code.
+- Fix: exactly ONE #game visibility pair now — `#game.active { display: grid; ...grid props... }`,
+  no unconditional display on #game. Falls back to `.screen` display:none when not active.
+  Grid props merged from both old blocks (kept effective deployed values: minmax(0,1fr) row,
+  100dvh, safe-area padding, columns 1fr, gap 0).
+- Duplicate-selector scan of whole style.css (incl. media queries): #game was the ONLY duplicated
+  selector; no other conflicts introduced by the redesign.
+- Extra functional fix found during E2E: client never handled the server's `left` event, so the
+  in-game exit button (gameExitBtn -> emit leaveRoom) returned nowhere. Added
+  `socket.on('left') -> showScreen('home')` in app.js (pre-existing gap, not redesign-caused).
+- E2E (headless Chrome + real server, 31/31 checks): splash->home, home->lobby (2nd player joins
+  via code), lobby->game, full bot game to win modal, again->game, exit->home, play-with-bots->game.
+  Every hidden screen computed display:none with 0x0 paint box (no partial/transparent bleed).
+- Noted (NOT fixed, out of scope): turn watchdog skips disconnected players' seats — a dropped
+  human soft-locks a running game (server.js watchdog `if (!p || !p.connected) continue;`).
+- Cache-bust: style.css?v=g20250130-2
