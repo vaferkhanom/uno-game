@@ -582,13 +582,9 @@
       emit('startGame');
     };
 
-    // دکمه خروج در صفحه بازی
-    const exitBtn = document.createElement('button');
-    exitBtn.className = 'btn-icon';
-    exitBtn.style.cssText = 'position:absolute; top:calc(10px + var(--sat)); left:12px; z-index:20; width:38px; height:38px; font-size:16px;';
-    exitBtn.textContent = '→';
-    exitBtn.onclick = () => emit('leaveRoom');
-    $('game').appendChild(exitBtn);
+    // دکمه خروج در صفحه بازی (از قبل در HTML داخل .game-topbar وجود دارد)
+    const exitBtn = $('gameExitBtn');
+    if (exitBtn) exitBtn.onclick = () => emit('leaveRoom');
   }
 
   async function doJoin() {

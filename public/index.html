@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b0b1e">
   <title>🎲 یونو آنلاین</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/css/style.css?v=1a2b3c4d">
+  <link rel="stylesheet" href="/css/style.css?v=g20250130-1">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23ff3b3b'/><text x='50' y='66' font-size='40' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>U</text></svg>">
 </head>
 <body>
@@ -98,33 +98,43 @@
   </div>
 
   <div id="game" class="screen">
-    <div class="game-room-chip" id="gameRoomChip" title="کپی کد اتاق">
-      <span class="chip-code" id="gameRoomCode">-----</span>
+    <!-- نوار بالا: خروج + کد اتاق + حریف‌ها -->
+    <div class="game-topbar">
+      <div class="game-topbar-row">
+        <button class="btn-icon game-exit" id="gameExitBtn" title="خروج">→</button>
+        <div class="game-room-chip" id="gameRoomChip" title="کپی کد اتاق">
+          <span class="chip-code" id="gameRoomCode">-----</span>
+        </div>
+        <div class="game-topbar-spacer"></div>
+      </div>
+      <div id="opponents"></div>
     </div>
-    <div id="opponents"></div>
 
-    <div class="table-center">
-      <div class="direction-badge" id="directionBadge" title="جهت بازی">⟳</div>
+    <!-- میز -->
+    <div class="table-center" id="gameTable">
+      <div class="turn-banner" id="turnBanner">نوبت شماست! 🔥</div>
       <div class="pile-area">
         <div class="deck-pile" id="deckPile">
+          <div class="deck-back" id="deckBack"></div>
           <div class="deck-count" id="deckCount">۵۴</div>
         </div>
         <div class="discard-area">
           <div class="color-ring" id="colorRing"></div>
           <div class="discard-pile" id="discardPile"></div>
+          <div class="direction-badge" id="directionBadge" title="جهت بازی">⟳</div>
         </div>
       </div>
-      <div class="turn-banner" id="turnBanner">نوبت شماست! 🔥</div>
+      <div class="catch-banner" id="catchBanner" hidden></div>
     </div>
 
+    <!-- اکشن‌ها -->
     <div class="game-actions" id="gameActions">
       <button class="btn btn-action btn-draw" id="drawBtn">🃏 برداشتن کارت</button>
       <button class="btn btn-action btn-pass" id="passBtn" disabled>⏭ گذر</button>
       <button class="btn btn-action btn-uno" id="unoBtn" hidden>📢 یونو!</button>
     </div>
 
-    <div class="catch-banner" id="catchBanner" hidden></div>
-
+    <!-- دست بازیکن -->
     <div class="hand-wrap">
       <div class="hand" id="hand"></div>
     </div>
