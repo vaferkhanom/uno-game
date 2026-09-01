@@ -260,3 +260,18 @@ No further action needed unless the user's live re-test shows a specific command
   command path, keyboard labels, bare-code join, unknown fallback, setMyCommands, support
   contact. Production boot verified (UCHO server listening, bot disabled without token).
   test-game.js + test-stack.js still green.
+
+## [2026-09-01 BOT-MINIMAL] Bot stripped to start/help/support; keyboard removed
+- Removed ALL bot commands (/play /join /room /list /leave /invite /rules /stats /about)
+  and the bottom reply keyboard — everything lives in the Mini App; deep-link /start CODE
+  and bare room codes still join rooms (invite links keep working, now with PLAY UCHO).
+- New /start: emoji welcome (brand UCHO, «اونو» wording — no «یونو»), PLAY UCHO web-app
+  button + support button, followed by a silent remove_keyboard message so old users lose
+  the stale bottom keyboard. /help: pure in-app guidance (bots, friends, stack tip).
+  /support: @Vlniqqa + contact button. Unknown text → friendly fallback with PLAY UCHO.
+- Bot identity: new emoji-rich description/bio (no «یونو»), minimal command menu
+  (start/help/support) via setMyCommands.
+- Bug fixed en route: /join case was dropped in rewrite — restored; test-bot.js rewritten
+  (22/22): welcome copy, keyboard removal, deep-link join, fallback, metadata. Prod boot +
+  test-stack + production test-game all green. Note: already-sent bot messages are immutable
+  — only NEW messages show PLAY UCHO.
