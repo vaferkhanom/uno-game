@@ -11,6 +11,10 @@ const { Room, generateRoomCode, COLORS, MAX_PLAYERS } = require('./uno.js');
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN ||'';
 let BOT_USERNAME = process.env.BOT_USERNAME ||'';
+const GAME_NAME ='UCHO';
+const BOT_NAME ='UCHO Bot';
+const SUPPORT_HANDLE ='@Vlniqqa';
+const SUPPORT_URL ='https://t.me/Vlniqqa';
 
 const app = express();
 const server = http.createServer(app);
@@ -672,15 +676,24 @@ function handleBotUpdate(upd) {
     case'me':      return cmdStats(chatId, userKey);
     case'invite':
     case'share':   return cmdInvite(chatId, userKey);
+    case'support':
+    case'report':
+    case'admin':   return cmdSupport(chatId);
+    case'about':
+    case'aboutus':
+    case'darbare': return cmdAbout(chatId, fromUser);
   }
 
   // --- دکمه‌های کیبورد ---
-  if (text ==='ساخت اتاق جدید' || text ==='ساخت اتاق' || text ==='بازی UCHO') return cmdPlay(chatId, fromUser);
+  if (text ==='ساخت اتاق جدید' || text ==='ساخت اتاق' || text ==='بازی UCHO' || text ==='بازی') return cmdPlay(chatId, fromUser);
   if (text ==='پیوستن با کد' || text ==='پیوستن') return cmdJoinPrompt(chatId);
-  if (text ==='قوانین') return cmdRules(chatId);
+  if (text ==='قوانین بازی' || text ==='قوانین') return cmdRules(chatId);
   if (text ==='آمار من') return cmdStats(chatId, userKey);
   if (text ==='اتاق من') return cmdMyCode(chatId, userKey);
+  if (text ==='دعوت دوستان' || text ==='دعوت') return cmdInvite(chatId, userKey);
   if (text ==='ترک اتاق') return cmdLeave(chatId, userKey);
+  if (text ==='پشتیبانی' || text ==='گزارش مشکل') return cmdSupport(chatId);
+  if (text ==='درباره UCHO' || text ==='دربارهٔ UCHO' || text ==='درباره') return cmdAbout(chatId, fromUser);
 
   // --- پیام متنی که فقط کد ۴ تا ۶ کاراکتری لاتین است → پیوستن ---
   if (/^[A-Za-z0-9]{4,6}$/.test(text)) return cmdJoin(chatId, fromUser, [text.toUpperCase()]);
@@ -698,49 +711,41 @@ async function cmdStart(chatId, fromUser, args) {
     return cmdJoin(chatId, fromUser, [args[0].toUpperCase()]);
   }
   const firstName = escapeHtml(fromUser.first_name ||'دوست من');
+  const webLink =`https://t.me/${BOT_USERNAME}`;
   const text =
-`سلام <b>${firstName}</b>!\n\n` +
-`به ربات <b>UCHO آنلاین</b> خوش آمدی.\n` +
-`اینجا می‌تونی با دوستانت UCHO آنلاین بازی کنی.\n\n` +
-`━━━━━━━━━━━━━━━━━━\n` +
-`<b>راهنمای کامل دستورات:</b>\n━━━━━━━━━━━━━━━━━━\n\n` +
-`<b>ساخت اتاق</b>\n` +
-`<code>/play</code>  یا <code>/new</code>\n` +
-`→ یک اتاق می‌سازد و کد ۵ حرفی آن را بهت می‌دهد.\n\n` +
-`<b>پیوستن به اتاق</b>\n` +
-`<code>/join ABCDE</code>\n` +
-`→ کد اتاق دوستت را وارد کن تا به او ملحق شوی.\n` +
-`→ یا فقط کد را بفرست: <code>ABCDE</code>\n\n` +
-`<b>کد اتاق فعلی من</b>\n` +
-`<code>/room</code>  یا <code>/code</code>\n` +
-`→ اگر الان در اتاقی هستی، کدش را نشانت می‌دهد.\n\n` +
-`<b>لیست اتاق‌های فعال من</b>\n` +
-`<code>/list</code>  یا <code>/myrooms</code>\n` +
-`→ همهٔ اتاق‌هایی که الان در آنها هستی.\n\n` +
-`<b>ترک اتاق</b>\n` +
-`<code>/leave</code>\n` +
-`→ از اتاق فعلی‌ات خارج می‌شوی.\n\n` +
-`<b>دعوت دوستان</b>\n` +
-`<code>/invite</code>\n` +
-`→ یک لینک دعوت‌نامه برای اتاق فعلی‌ات می‌سازد.\n\n` +
-`<b>قوانین بازی</b>\n` +
-`<code>/rules</code>\n` +
-`→ خلاصه‌ای از قوانین UCHO.\n\n` +
-`<b>آمار من</b>\n` +
-`<code>/stats</code>\n` +
-`→ اطلاعات حساب شما.\n\n` +
-`<b>راهنما</b>\n` +
-`<code>/help</code>\n` +
-`→ همین پیام را دوباره نشانت می‌دهد.\n\n` +
-`━━━━━━━━━━━━━━━━━━\n` +
-`<b>شروع سریع:</b> اول بزن <code>/play</code> تا یک اتاق بسازی، بعد کدش رو برای دوستت بفرست.`;
+`سلام <b>${firstName}</b>! به <b>${GAME_NAME}</b> خوش آمدی.
+
+<b>${GAME_NAME}</b> بازی کارتی محبوب همه است — سریع، هیجانی و رقابتی؛ اینجا با دوستانت یا با ربات‌ها بازی کن.
+
+━━━━━━━━━━━━━━━━━━
+<b>دستورها:</b>
+
+<code>/play</code> — ساخت اتاق جدید
+<code>/join ABCDE</code> — پیوستن با کد اتاق
+<code>/room</code> — کد اتاق فعلی تو
+<code>/list</code> — اتاق‌های فعال تو
+<code>/invite</code> — لینک دعوت دوستان
+<code>/leave</code> — ترک اتاق
+<code>/rules</code> — قوانین بازی
+<code>/stats</code> — آمار تو
+<code>/support</code> — گزارش مشکل یا پیشنهاد
+<code>/about</code> — دربارهٔ ${GAME_NAME}
+
+می‌توانی فقط کد اتاق را هم بفرستی (مثل <code>ABCDE</code>) تا مستقیم به اتاق بپیوندی.
+
+━━━━━━━━━━━━━━━━━━
+<b>شروع سریع:</b> <code>/play</code> را بزن، کد اتاق را برای دوستانت بفرست، و با هم بازی کنید.`;
   await tgCall('sendMessage', {
     chat_id: chatId, text, parse_mode:'HTML',
     reply_markup: {
+      inline_keyboard: [
+        [{ text:'PLAY UCHO', web_app: { url: webLink } }],
+      ],
       keyboard: [
-        [{ text:'ساخت اتاق جدید' }, { text:'پیوستن با کد' }],
-        [{ text:'اتاق من' }, { text:'ترک اتاق' }],
-        [{ text:'قوانین' }, { text:'آمار من' }],
+        [{ text:'بازی' }, { text:'پیوستن با کد' }],
+        [{ text:'اتاق من' }, { text:'دعوت دوستان' }],
+        [{ text:'قوانین بازی' }, { text:'آمار من' }],
+        [{ text:'پشتیبانی' }, { text:'درباره UCHO' }],
       ],
       resize_keyboard: true,
     },
@@ -755,22 +760,24 @@ async function cmdPlay(chatId, fromUser) {
   console.log(`[bot] /play: created room ${room.code} for ${user.id}`);
   const link =`https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
   const text =
-`<b>اتاق ساخته شد!</b>\n\n` +
-`کد اتاق شما:  <code>${room.code}</code>\n\n` +
-`ظرفیت: ۲ تا ${MAX_PLAYERS} بازیکن\n` +
-`بازیکنان فعلی: ۱ نفر (خودتان)\n\n` +
-`━━━━━━━━━━━━━━━━━━\n` +
-`<b>گام بعدی:</b>\n` +
-`۱. کد بالا را برای دوستانتان بفرستید.\n` +
-`۲. یا دکمهٔ «باز کردن اتاق» را بزنید تا وارد بازی شوید.\n` +
-`۳. وقتی حداقل ۲ بازیکن باشند، میزبان می‌تواند بازی را شروع کند.\n\n` +
-`دوستتان برای پیوستن در همین ربات می‌فرستد: <code>/join ${room.code}</code>`;
+`<b>اتاق جدید ساخته شد</b>
+
+کد اتاق: <code>${room.code}</code>
+ظرفیت: تا ${MAX_PLAYERS} بازیکن
+
+━━━━━━━━━━━━━━━━━━
+<b>قدم بعدی:</b>
+۱. کد بالا را برای دوستانت بفرست.
+۲. روی «PLAY UCHO» بزن تا وارد میز شوی.
+۳. وقتی حداقل ۲ نفر بودید، از منوی داخل بازی «شروع بازی» را بزن.
+
+دوستت هم می‌تواند در همین ربات کد را بفرستد: <code>/join ${room.code}</code>`;
   await tgCall('sendMessage', {
     chat_id: chatId, text, parse_mode:'HTML',
     reply_markup: {
       inline_keyboard: [
-        [{ text:'باز کردن اتاق', web_app: { url: link } }],
         [{ text:'اشتراک‌گذاری کد', switch_inline_query: room.code }],
+        [{ text:'PLAY UCHO', web_app: { url: link } }],
       ],
     },
   }).catch(e => console.error('[bot] /play send error:', e.message));
@@ -780,10 +787,10 @@ async function cmdJoinPrompt(chatId) {
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-`<b>پیوستن به اتاق</b>\n\n` +
-`کد ۵ حرفی اتاق را بفرست.\n` +
-`مثال: <code>ABCDE</code>\n\n` +
-`یا دستور کامل: <code>/join ABCDE</code>`,
+`<b>پیوستن به اتاق</b>
+
+کد ۵ حرفی اتاق را بفرست؛ مثل <code>ABCDE</code>.
+یا دستور کامل: <code>/join ABCDE</code>`,
     parse_mode:'HTML',
   }).catch(e => console.error('[bot] /join prompt error:', e.message));
 }
@@ -792,7 +799,10 @@ async function cmdJoin(chatId, fromUser, args) {
   if (!args || !args[0]) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text:`<b>کد اتاق را وارد نکردی!</b>\n\nنحوهٔ استفاده:\n<code>/join ABCDE</code>\n\nیا فقط کد را بفرست: <code>ABCDE</code>`,
+      text:`<b>کد را وارد نکردی</b>
+
+نحوهٔ استفاده: <code>/join ABCDE</code>
+یا فقط کد را همان‌طور بفرست: <code>ABCDE</code>`,
       parse_mode:'HTML',
     }).catch(() => {});
   }
@@ -800,7 +810,9 @@ async function cmdJoin(chatId, fromUser, args) {
   if (!/^[A-Z0-9]{4,6}$/.test(code)) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text:`کد «<code>${code}</code>» معتبر نیست. کد اتاق ۴ تا ۶ کاراکتر (حرف و عدد) است.\n\nمثال درست: <code>ABCDE</code>`,
+      text:`کد «<code>${code}</code>» معتبر نیست. کد اتاق ۴ تا ۶ کاراکتر است و فقط حرف و عدد دارد.
+
+نمونهٔ درست: <code>ABCDE</code>`,
       parse_mode:'HTML',
     }).catch(() => {});
   }
@@ -808,21 +820,27 @@ async function cmdJoin(chatId, fromUser, args) {
   if (!room) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text:`اتاقی با کد <code>${code}</code> پیدا نشد.\n\nممکن است:\n• منقضی شده باشد (اتاق‌ها ۶ ساعت بی‌استفاده می‌مانند)\n• کد را اشتباه وارد کرده باشی\n\nاز میزبان بخواه دوباره اتاق بسازد: <code>/play</code>`,
+      text:`اتاقی با کد <code>${code}</code> پیدا نشد.
+
+دلایل احتمالی:
+• اتاق منقضی شده (اتاق‌های بی‌استفاده بعد از مدتی پاک می‌شوند)
+• کد اشتباه تایپ شده
+
+از دوستت بخواه اتاق تازه بسازد: <code>/play</code>`,
       parse_mode:'HTML',
     }).catch(() => {});
   }
   if (room.state !=='lobby') {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text:`اتاق <code>${room.code}</code> در حال بازی است. صبر کن تا دست تمام شود.`,
+      text:`اتاق <code>${room.code}</code> همین حالا درگیر بازی است. کمی صبر کن تا دست تمام شود، بعد دوباره امتحان کن.`,
       parse_mode:'HTML',
     }).catch(() => {});
   }
   if (room.players.length >= MAX_PLAYERS) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text:`اتاق <code>${room.code}</code> پُر است (${room.players.length}/${MAX_PLAYERS}).`,
+      text:`ظرفیت اتاق <code>${room.code}</code> پُر است (${room.players.length} از ${MAX_PLAYERS}). متأسفانه جا نیست.`,
       parse_mode:'HTML',
     }).catch(() => {});
   }
@@ -834,14 +852,16 @@ async function cmdJoin(chatId, fromUser, args) {
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-`<b>اتاق پیدا شد!</b>\n\n` +
-`کد: <code>${room.code}</code>\n` +
-`بازیکنان فعلی: ${room.players.length} از ${MAX_PLAYERS}\n` +
-`میزبان: ${hostName}\n\n` +
-`برای ورود روی دکمهٔ زیر بزن:`,
+`<b>اتاق پیدا شد</b>
+
+کد: <code>${room.code}</code>
+میزبان: ${hostName}
+بازیکنان: ${room.players.length} از ${MAX_PLAYERS}
+
+برای ورود به میز، دکمهٔ پایین را بزن:`,
     parse_mode:'HTML',
     reply_markup: {
-      inline_keyboard: [[{ text:'پیوستن به اتاق', web_app: { url: link } }]],
+      inline_keyboard: [[{ text:'PLAY UCHO', web_app: { url: link } }]],
     },
   }).catch(e => console.error('[bot] /join send error:', e.message));
 }
@@ -851,7 +871,10 @@ async function cmdMyCode(chatId, userKey) {
   if (!code) {
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text:`ℹ الان در هیچ اتاقی نیستی.\n\nبرای ساخت اتاق: <code>/play</code>\nبرای پیوستن: <code>/join ABCDE</code>`,
+      text:`الان در هیچ اتاقی نیستی.
+
+برای شروع: <code>/play</code> یک اتاق تازه می‌سازد.
+برای پیوستن: <code>/join ABCDE</code>`,
       parse_mode:'HTML',
     }).catch(() => {});
   }
@@ -860,25 +883,27 @@ async function cmdMyCode(chatId, userKey) {
     userRoom.delete(userKey);
     return tgCall('sendMessage', {
       chat_id: chatId,
-      text:`ℹ اتاق قبلی‌ات منقضی شده. <code>/play</code> برای ساخت اتاق جدید.`,
+      text:`اتاق قبلی‌ات منقضی شده و پاک شده است. با <code>/play</code> یک اتاق تازه بساز.`,
       parse_mode:'HTML',
     }).catch(() => {});
   }
   const link =`https://t.me/${BOT_USERNAME}?startapp=${room.code}`;
-  const status = room.state ==='lobby' ?'منتظر بازیکن' : room.state ==='playing' ?'در حال بازی' :'پایان‌یافته';
+  const status = room.state ==='lobby' ?'در انتظار بازیکن' : room.state ==='playing' ?'در حال بازی' :'پایان‌یافته';
   const hostName = room.players[0] ? escapeHtml(room.players[0].name) :'—';
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-`<b>اتاق فعلی شما</b>\n\n` +
-`کد: <code>${room.code}</code>\n` +
-`وضعیت: ${status}\n` +
-`بازیکنان: ${room.players.length} از ${MAX_PLAYERS}\n` +
-`میزبان: ${hostName}\n\n` +
-`روی دکمهٔ زیر بزن تا وارد بازی شوی:`,
+`<b>اتاق فعلی تو</b>
+
+کد: <code>${room.code}</code>
+وضعیت: ${status}
+میزبان: ${hostName}
+بازیکنان: ${room.players.length} از ${MAX_PLAYERS}
+
+دکمهٔ پایین تو را به میز می‌برد:`,
     parse_mode:'HTML',
     reply_markup: {
-      inline_keyboard: [[{ text:'باز کردن اتاق', web_app: { url: link } }]],
+      inline_keyboard: [[{ text:'PLAY UCHO', web_app: { url: link } }]],
     },
   }).catch(e => console.error('[bot] /room send error:', e.message));
 }
@@ -888,14 +913,19 @@ async function cmdMyRooms(chatId, userKey) {
   let lines;
   if (inRoom && rooms.has(inRoom)) {
     const r = rooms.get(inRoom);
-    lines = [`<code>${r.code}</code> — وضعیت: ${r.state} — ${r.players.length}/${MAX_PLAYERS} بازیکن`];
+    const st = r.state ==='lobby' ?'در انتظار بازیکن' : r.state ==='playing' ?'در حال بازی' :'پایان‌یافته';
+    lines = [`<code>${r.code}</code> — ${st} — ${r.players.length} از ${MAX_PLAYERS} بازیکن`];
   } else {
     if (inRoom) userRoom.delete(userKey);
-    lines = ['(الان در هیچ اتاقی نیستی)'];
+    lines = ['الان در هیچ اتاقی نیستی.'];
   }
   await tgCall('sendMessage', {
     chat_id: chatId,
-    text:`<b>اتاق‌های فعال شما</b>\n\n${lines.join('\n')}\n\n با <code>/play</code> اتاق جدید بساز یا <code>/join ABCDE</code> به اتاق دوستت بپیوند.`,
+    text:`<b>اتاق‌های فعال تو</b>
+
+${lines.join('\n')}
+
+اتاق جدید: <code>/play</code> — پیوستن: <code>/join ABCDE</code>`,
     parse_mode:'HTML',
   }).catch(() => {});
 }
@@ -904,7 +934,7 @@ async function cmdLeave(chatId, userKey) {
   const code = userRoom.get(userKey);
   if (!code) {
     return tgCall('sendMessage', {
-      chat_id: chatId, text:'ℹ الان در هیچ اتاقی نیستی.', parse_mode:'HTML',
+      chat_id: chatId, text:'الان در هیچ اتاقی نیستی؛ چیزی برای ترک کردن نیست.', parse_mode:'HTML',
     }).catch(() => {});
   }
   const room = rooms.get(code);
@@ -914,7 +944,9 @@ async function cmdLeave(chatId, userKey) {
   }
   userRoom.delete(userKey);
   await tgCall('sendMessage', {
-    chat_id: chatId, text:`از اتاق <code>${code}</code> خارج شدی.`, parse_mode:'HTML',
+    chat_id: chatId, text:`از اتاق <code>${code}</code> خارج شدی.
+
+هر وقت خواستی برگردی: <code>/play</code> یا <code>/join ABCDE</code>`, parse_mode:'HTML',
   }).catch(() => {});
 }
 
@@ -922,65 +954,132 @@ async function cmdInvite(chatId, userKey) {
   const code = userRoom.get(userKey);
   if (!code || !rooms.has(code)) {
     return tgCall('sendMessage', {
-      chat_id: chatId, text:'ℹ اول باید یک اتاق بسازی: <code>/play</code>', parse_mode:'HTML',
+      chat_id: chatId, text:`اول باید در یک اتاق باشی.
+
+با <code>/play</code> اتاق بساز، بعد دوباره <code>/invite</code> را بزن.`, parse_mode:'HTML',
     }).catch(() => {});
   }
   const link =`https://t.me/${BOT_USERNAME}?startapp=${code}`;
   await tgCall('sendMessage', {
     chat_id: chatId,
-    text:`<b>دعوت دوستان به اتاق</b>\n\n کد: <code>${code}</code>\n\n <b>لینک دعوت:</b>\n${link}\n\nاین لینک را برای دوستانت بفرست. وقتی باز کنند، مستقیماً وارد اتاق تو می‌شوند.`,
+    text:`<b>دعوت دوستان به اتاق</b>
+
+کد اتاق: <code>${code}</code>
+
+لینک دعوت:
+${link}
+
+این لینک را برای دوستانت بفرست؛ با باز کردنش مستقیم به اتاق تو می‌آیند.`,
     parse_mode:'HTML',
   }).catch(() => {});
 }
 
 async function cmdRules(chatId) {
   const text =
-`<b>قوانین UCHO</b>\n\n` +
-`<b>هدف:</b> اولین نفری که همهٔ کارت‌هایش را بازی کند.\n\n` +
-`▶ <b>نوبت:</b> کارتی بازی کن که هم‌رنگ، هم‌عدد یا هم‌نماد کارت روی میز باشد. اگر نداشتی، یک کارت بردار.\n\n` +
-`<b>رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.\n` +
-`<b>معکوس (Reverse):</b> جهت بازی برعکس می‌شود.\n` +
-`<b>+۲ (Draw Two):</b> بازیکن بعدی ۲ کارت برمی‌دارد و نوبتش رد می‌شود. اگر خودش ۲+ داشته باشد می‌تواند روی آن بگذارد و جریمه جمع می‌شود (۲، ۴، ۶…)؛ در پایان، بازیکنی که نتواند ۲+ پاسخ دهد همهٔ کارت‌های پشته را برمی‌دارد.\n` +
-`<b>وایلد (Wild):</b> رنگ دلخواه انتخاب می‌کنی.\n` +
-`<b>وایلد +۴:</b> رنگ انتخاب می‌کنی و بازیکن بعدی ۴ کارت جریمه می‌گیرد.\n\n` +
-`<b>UCHO!</b> وقتی یک کارت برایت مانده، دکمهٔ «UCHO!» را بزن. اگر کسی قبل از نوبت بعدی متوجه شود و «بگیرش» بزند، ۲ کارت جریمه می‌گیری!\n\n` +
-`<b>امتیاز:</b> برنده، امتیاز کارت‌های دیگران را می‌گیرد (عددی = خودش، ویژه = ۲۰، وایلد = ۵۰).`;
+`<b>قوانین ${GAME_NAME}</b>
+
+<b>هدف:</b> زودتر از بقیه کارت‌هایت را تمام کن.
+
+<b>نوبت:</b> کارتی بازی کن که هم‌رنگ، هم‌عدد یا هم‌نمادِ کارت روی میز باشد؛ اگر کارت مناسب نداشتی، یک کارت بردار.
+
+<b>کارت‌های ویژه:</b>
+• <b>رد (Skip)</b> — بازیکن بعدی یک نوبت رد می‌شود.
+• <b>معکوس (Reverse)</b> — جهت چرخش بازی عوض می‌شود.
+• <b>۲+</b> — بازیکن بعدی ۲ کارت برمی‌دارد و رد می‌شود؛ اما اگر خودش ۲+ داشته باشد می‌تواند روی آن بگذارد و جریمه جمع شود (۲، ۴، ۶…)؛ در پایان، بازیکنی که نتواند ۲+ پاسخ دهد، همهٔ کارت‌های پشته را برمی‌دارد.
+• <b>وایلد (Wild)</b> — رنگ دلخواهت را انتخاب می‌کنی.
+• <b>وایلد ۴+</b> — رنگ انتخاب می‌کنی و بازیکن بعدی ۴ کارت جریمه می‌گیرد.
+
+<b>UCHO!</b> وقتی فقط یک کارت برایت مانده، دکمهٔ «UCHO!» را بزن؛ اگر کسی قبل از نوبت بعدی متوجه شود و «بگیرش» را بزند، ۲ کارت جریمه می‌گیری.
+
+<b>امتیاز:</b> برندهٔ هر دست، امتیاز کارت‌های باقی‌ماندهٔ بقیه را می‌گیرد (عددی = خود عدد، ویژه = ۲۰، وایلد = ۵۰).
+
+برای دیدن قوانین در هر لحظه: <code>/rules</code>`;
   await tgCall('sendMessage', { chat_id: chatId, text, parse_mode:'HTML' }).catch(() => {});
 }
 
 async function cmdStats(chatId, userKey) {
   const code = userRoom.get(userKey);
   const inRoom = code && rooms.has(code);
+  let roomLine = '—';
+  if (inRoom) {
+    const r = rooms.get(code);
+    roomLine = `<code>${r.code}</code> (${r.players.length} از ${MAX_PLAYERS} بازیکن)`;
+  }
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-`<b>آمار شما</b>\n\n` +
-`شناسه: <code>${userKey}</code>\n` +
-`اتاق فعلی: ${inRoom ?'<code>' + code +'</code>' :'—'}\n` +
-`تعداد بازی‌ها: (به‌زودی)\n` +
-`بردها: (به‌زودی)\n` +
-`مجموع امتیاز: (به‌زودی)\n\n` +
-`برای شروع بازی: <code>/play</code>`,
+`<b>آمار تو</b>
+
+شناسه: <code>${userKey}</code>
+اتاق فعلی: ${roomLine}
+دست‌های بازی‌شده: <i>به‌زودی</i>
+بردها: <i>به‌زودی</i>
+مجموع امتیاز: <i>به‌زودی</i>
+
+آماده‌ای؟ <code>/play</code>`,
     parse_mode:'HTML',
   }).catch(() => {});
+}
+
+async function cmdSupport(chatId) {
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+`<b>پشتیبانی ${GAME_NAME}</b>
+
+اگر به مشکلی خوردی، باگی دیدی یا پیشنهادی برای بهتر شدن بازی داری، مستقیم برای ما بنویس:
+${SUPPORT_HANDLE}
+
+<b>برای گزارش سریع‌تر، این‌ها را ذکر کن:</b>
+• چه کاری انجام می‌دادی؟
+• دقیقاً چه اتفاقی افتاد؟
+• اگر ممکن است، اسکرین‌شات هم بفرست.
+
+در سریع‌ترین زمان پاسخ می‌دهیم.`,
+    parse_mode:'HTML',
+    reply_markup: {
+      inline_keyboard: [[{ text:'گفتگو با پشتیبانی', url: SUPPORT_URL }]],
+    },
+  }).catch(e => console.error('[bot] /support send error:', e.message));
+}
+
+async function cmdAbout(chatId, fromUser) {
+  const firstName = escapeHtml(fromUser && fromUser.first_name ||'دوست من');
+  const webLink =`https://t.me/${BOT_USERNAME}`;
+  await tgCall('sendMessage', {
+    chat_id: chatId,
+    text:
+`<b>دربارهٔ ${GAME_NAME}</b>
+
+${firstName}، <b>${GAME_NAME}</b> همان بازی کارتی محبوب است — فارسی، آنلاین و همین‌جا داخل تلگرام؛ بدون نصب، با دوستان یا با ربات‌های هوشمند.
+
+<b>ربات:</b> ${BOT_NAME}
+<b>نسخه:</b> ۱٫۰
+<b>پشتیبانی و ادمین:</b> ${SUPPORT_HANDLE}
+
+مشکل یا پیشنهادی داری؟ <code>/support</code>
+آمادهٔ بازی؟ <code>/play</code>`,
+    parse_mode:'HTML',
+    reply_markup: {
+      inline_keyboard: [[{ text:'PLAY UCHO', web_app: { url: webLink } }]],
+    },
+  }).catch(e => console.error('[bot] /about send error:', e.message));
 }
 
 async function cmdUnknown(chatId, text) {
   await tgCall('sendMessage', {
     chat_id: chatId,
     text:
-`پیام «<i>${escapeHtml(text.slice(0, 60))}</i>» را نفهمیدم.\n\n` +
-`<b>دستورهای موجود:</b>\n` +
-`<code>/play</code> — ساخت اتاق جدید\n` +
-`<code>/join ABCDE</code> — پیوستن به اتاق\n` +
-`<code>/room</code> — کد اتاق فعلی من\n` +
-`<code>/list</code> — لیست اتاق‌های فعال\n` +
-`<code>/leave</code> — ترک اتاق\n` +
-`<code>/invite</code> — لینک دعوت\n` +
-`<code>/rules</code> — قوانین بازی\n` +
-`<code>/stats</code> — آمار من\n` +
-`<code>/help</code> — راهنمای کامل\n\n` +
-`یا از کیبورد پایین یکی از گزینه‌ها را انتخاب کن.`,
+`پیام «<i>${escapeHtml(text.slice(0, 60))}</i>» را متوجه نشدم.
+
+<b>کارهایی که می‌توانی بکنی:</b>
+• <code>/play</code> — ساخت اتاق جدید
+• <code>/join ABCDE</code> — پیوستن به اتاق
+• فقط خود کد اتاق را بفرست (مثل <code>ABCDE</code>)
+• <code>/rules</code> — قوانین بازی
+• <code>/help</code> — راهنمای کامل
+
+اگر هم گم شدی، کیبورد پایین همهٔ گزینه‌ها را دارد.`,
     parse_mode:'HTML',
   }).catch(() => {});
 }
@@ -1000,22 +1099,52 @@ function escapeHtml(s) {
 
 const WEBAPP_URL = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ?'https://' + process.env.RAILWAY_PUBLIC_DOMAIN :'http://localhost:' + PORT);
 
-// ---------- start ----------
-server.listen(PORT, () => {
-  console.log(` UNO server listening on port ${PORT}`);
-  console.log(`   WebApp URL: ${WEBAPP_URL}`);
-  if (BOT_TOKEN) {
-    tgCall('getMe', {}).then(res => {
-      if (res.ok) {
-        console.log(` Bot connected: @${res.result.username}`);
-        if (!BOT_USERNAME) BOT_USERNAME = res.result.username;
-        botLoop();
-      } else {
-        console.error(' Bot token invalid:', JSON.stringify(res));
-      }
-    });
-  } else {
-    console.log('  BOT_TOKEN not set — bot disabled');
-  }
-});
+async function initBot() {
+  if (!BOT_TOKEN) return;
+  tgCall('getMe', {}).then(res => {
+    if (res.ok) {
+      BOT_USERNAME = BOT_USERNAME || res.result.username;
+      console.log(` Bot connected: @${res.result.username} (${BOT_NAME})`);
+      // Set bot metadata: description + about + name, and the /-command menu
+      const setDescription = tgCall('setMyDescription', {
+        description: `${GAME_NAME} — بازی کارتی محبوب، فارسی و آنلاین داخل تلگرام. با دوستانت بازی کن یا به میزهای ربات‌ها بپیوند.`,
+      });
+      const setAbout = tgCall('setMyShortDescription', {
+        short_description: `بازی کارتی ${GAME_NAME} — سریع، فارسی و آنلاین. PLAY UCHO`,
+      });
+      const setCommands = tgCall('setMyCommands', {
+        commands: [
+          { command: 'play', description: 'ساخت اتاق جدید' },
+          { command: 'join', description: 'پیوستن به اتاق با کد — /join ABCDE' },
+          { command: 'room', description: 'کد اتاق فعلی تو' },
+          { command: 'list', description: 'اتاق‌های فعال تو' },
+          { command: 'invite', description: 'لینک دعوت دوستان' },
+          { command: 'leave', description: 'ترک اتاق فعلی' },
+          { command: 'rules', description: 'قوانین بازی' },
+          { command: 'stats', description: 'آمار تو' },
+          { command: 'support', description: 'گزارش مشکل یا پیشنهاد' },
+          { command: 'about', description: 'دربارهٔ UCHO' },
+          { command: 'help', description: 'راهنمای کامل' },
+        ],
+      });
+      Promise.allSettled([setDescription, setAbout, setCommands]).then(() => botLoop());
+    } else {
+      console.error(' Bot token invalid:', JSON.stringify(res));
+    }
+  });
+}
+
+if (process.env.BOT_TEST_HOOKS) {
+  module.exports = { handleBotUpdate, initBot, rooms, userRoom, GAME_NAME, BOT_NAME, SUPPORT_HANDLE };
+} else {
+  server.listen(PORT, () => {
+    console.log(` ${GAME_NAME} server listening on port ${PORT}`);
+    console.log(`   WebApp URL: ${WEBAPP_URL}`);
+    if (BOT_TOKEN) {
+      initBot();
+    } else {
+      console.log('  BOT_TOKEN not set — bot disabled');
+    }
+  });
+}
 

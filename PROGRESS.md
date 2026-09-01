@@ -243,3 +243,20 @@ No further action needed unless the user's live re-test shows a specific command
   pass-blocked, starter +2, last-card +2 win). E2E 46/46 incl. updated second-player bot
   driver that stacks. Production socket test passed. TDZ bug (stackN before init) found by
   E2E and fixed.
+
+## [2026-09-01 BOT-OVERHAUL] Telegram bot rebuilt: commands, support, branding
+- New commands: /support (report issues → @Vlniqqa with inline contact button), /about
+  (game + bot + admin info with PLAY UCHO CTA). Rewrote /start, /play, /join (all error
+  paths), /room, /list, /leave, /invite, /rules, /stats, unknown-fallback with polished
+  Persian wording (English only where necessary: UCHO, PLAY UCHO, command codes).
+- CTA buttons: every web_app link labeled 'PLAY UCHO' and placed as the bottom-left
+  inline button (last row, first position). Reply keyboard rebuilt: بازی | پیوستن با کد /
+  اتاق من | دعوت دوستان / قوانین بازی | آمار من / پشتیبانی | درباره UCHO.
+- Bot identity at boot: setMyDescription + setMyShortDescription (UCHO branding) and
+  setMyCommands with 11 Persian-described commands (real Telegram command menu).
+  Constants: GAME_NAME/BOT_NAME/SUPPORT_HANDLE/SUPPORT_URL. Bot display *name* itself is
+  a BotFather setting (API cannot change it) — recommend renaming the bot to 'UCHO Bot'.
+- test-bot.js (local, fetch-stubbed, gitignored): 30/30 — drives handleBotUpdate for every
+  command path, keyboard labels, bare-code join, unknown fallback, setMyCommands, support
+  contact. Production boot verified (UCHO server listening, bot disabled without token).
+  test-game.js + test-stack.js still green.
