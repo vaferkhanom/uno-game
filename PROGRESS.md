@@ -275,3 +275,18 @@ No further action needed unless the user's live re-test shows a specific command
   (22/22): welcome copy, keyboard removal, deep-link join, fallback, metadata. Prod boot +
   test-stack + production test-game all green. Note: already-sent bot messages are immutable
   — only NEW messages show PLAY UCHO.
+
+## [2026-09-01 DEPLOY-BROKEN] Root cause found: Railway self-deploy mutation returns null
+- Symptom: user sees old «یونو آنلاین» UI; container uptime 32h+; live site serves ?v=g20260831-1
+  (= commit a8fb6f0). GitHub HEAD has all newer commits — GitHub side is fine.
+- Diagnosis: repo webhook → https://...railway.app/railway/deploy fires on every push (200 OK),
+  but delivery body shows {"ok":true,"result":null} — the serviceInstanceDeployV2 GraphQL
+  mutation fails silently (old code wrapped failures in HTTP 200). Mutation reached Railway API
+  (env vars present) → most likely expired/invalid RAILWAY_TOKEN or permission/mutation change.
+- Fix in code: webhook now returns HTTP 502 + errors on failed mutations (GitHub deliveries turn
+  red), logs full GraphQL response, records lastDeployInfo, and a new GET /railway/deploy/status
+  endpoint exposes tokenSet/serviceIdSet/envIdSet/lastDeploy without leaking secrets.
+- Verified locally: bogus token → "Not Authorized" GraphQL error surfaced as 502.
+- ACTION NEEDED (user): in Railway → Variables, refresh RAILWAY_TOKEN (and check
+  RAILWAY_SERVICE_ID / RAILWAY_ENV_ID), then hit Redeploy once — or connect the GitHub repo
+  natively in Railway settings (auto-deploy without the self-webhook). After that, pushes deploy.

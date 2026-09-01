@@ -65,6 +65,20 @@ const RAILWAY_SERVICE_ID = process.env.RAILWAY_SERVICE_ID ||'';
 const RAILWAY_ENV_ID = process.env.RAILWAY_ENV_ID ||'';
 const GH_WEBHOOK_SECRET = process.env.GH_WEBHOOK_SECRET ||'';
 
+// وضعیت پیکربندی دیپلوی — بدون افشای مقادیر
+app.get('/railway/deploy/status', (req, res) => {
+  res.json({
+    tokenSet: !!RAILWAY_TOKEN,
+    serviceIdSet: !!RAILWAY_SERVICE_ID,
+    envIdSet: !!RAILWAY_ENV_ID,
+    webhookSecretSet: !!GH_WEBHOOK_SECRET,
+    lastDeploy: lastDeployInfo,
+    uptimeS: Math.floor(process.uptime()),
+    gitSha: (() => { try { return require('child_process').execSync('git rev-parse HEAD').toString().trim().slice(0, 8); } catch (e) { return null; } })(),
+  });
+});
+
+const lastDeployInfo = { at: null, sha: null, ok: null, errors: null };
 app.post('/railway/deploy', (req, res) => {
   // بررسی امضای وب‌هوک گیت‌هاب
   const sig = req.headers['x-hub-signature-256'];
@@ -90,8 +104,18 @@ app.post('/railway/deploy', (req, res) => {
   })
     .then(r => r.json())
     .then(data => {
+      // اگر GraphQL خطا داشته باشد یا result تهی باشد، این‌جا دیپلوی واقعاً انجام نشده
+      const failed = !data || data.errors || !data.data || !data.data.serviceInstanceDeployV2;
+      lastDeployInfo.at = new Date().toISOString();
+      lastDeployInfo.sha = sha.slice(0, 8);
+      lastDeployInfo.ok = !failed;
+      lastDeployInfo.errors = failed ? (data && data.errors ||'empty result') : null;
+      if (failed) {
+        console.error('[deploy-webhook] DEPLOY FAILED for', sha.slice(0, 8), '→', JSON.stringify(data).slice(0, 400));
+        return res.status(502).json({ ok: false, sha, errors: data && data.errors ||'empty result', hint:'check RAILWAY_TOKEN / serviceId / environmentId validity' });
+      }
       console.log('[deploy-webhook] triggered deploy for', sha.slice(0, 8), JSON.stringify(data).slice(0, 160));
-      res.json({ ok: true, sha, result: data.data && data.data.serviceInstanceDeployV2 });
+      res.json({ ok: true, sha, result: data.data.serviceInstanceDeployV2 });
     })
     .catch(err => {
       console.error('[deploy-webhook] error:', err.message);
