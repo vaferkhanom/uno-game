@@ -1,5 +1,5 @@
 /**
- * app.js — کلاینت بازی یونو آنلاین
+ * app.js — کلاینت بازی UCHO آنلاین
  */
 (function () {
   const U = window.UNOCards;
@@ -208,6 +208,7 @@
   // ---------- رندر بازی ----------
   function canPlayCard(card, game) {
     if (!game || !game.topCard) return false;
+    if (game.pendingDraw > 0) return card.value === 'draw2'; // فقط ۲+ به هم‌انبار پاسخ می‌دهد
     if (card.color === 'wild') return true;
     if (card.color === game.currentColor) return true;
     if (card.value === game.topCard.value) return true;
@@ -215,7 +216,7 @@
   }
 
   /*
-   * صندلی‌ها دور میز (مثل یونوی واقعی):
+   * صندلی‌ها دور میز (مثل میز بازی واقعی):
    *   ۱ بازیکن حریف → بالای میز
    *   ۲ بازیکن  → چپ و راست میز (عمودی)
    *   ۳ بازیکن  → چپ، بالا، راست
@@ -268,6 +269,7 @@
   function renderGame(s, first) {
     const game = s.game;
     const v = s.viewer;
+    const stackN = (game && game.pendingDraw) || 0; // پشتهٔ ۲+ باز
 
     // --- صندلی‌های دور میز ---
     renderSeats(s);
@@ -299,10 +301,14 @@
       const tp = s.players.find(p => p.id === game.turnPlayerId);
       if (v.isTurn) {
         banner.classList.add('me');
-        $('turnBannerText').textContent = 'نوبت شماست';
+        $('turnBannerText').textContent = stackN > 0
+          ? `نوبت شماست — ۲+ بازی کن یا ${faNum(stackN)} کارت بردار`
+          : 'نوبت شماست';
       } else {
         banner.classList.remove('me');
-        $('turnBannerText').textContent = `نوبت: ${tp ? tp.name : '…'}`;
+        $('turnBannerText').textContent = stackN > 0
+          ? `${tp ? tp.name : '…'} — ۲+ یا برداشت ${faNum(stackN)} کارت`
+          : `نوبت: ${tp ? tp.name : '…'}`;
       }
     } else {
       banner.classList.remove('me');
@@ -314,10 +320,23 @@
     const passBtn = $('passBtn');
     const unoBtn = $('unoBtn');
     const myTurn = !!v.isTurn && s.state === 'playing';
-    drawBtn.disabled = !myTurn || !!v.drawnThisTurn || !!(game && game.colorPickPending);
-    drawBtn.classList.toggle('can', myTurn && !v.drawnThisTurn);
-    passBtn.disabled = !myTurn || !v.drawnThisTurn;
+    drawBtn.disabled = !myTurn || !!(game && game.colorPickPending) || (!!v.drawnThisTurn && !stackN);
+    drawBtn.classList.toggle('can', myTurn && (!v.drawnThisTurn || !!stackN));
+    passBtn.disabled = !myTurn || !v.drawnThisTurn || !!stackN;
     unoBtn.hidden = !(v.hand && v.hand.length === 1 && v.canCallUno && s.state === 'playing');
+
+    // هم‌انبار: برچسب و دکمهٔ برداشت پشته
+    const drawLabel = $('drawBtnLabel');
+    if (drawLabel) {
+      drawLabel.textContent = stackN > 0
+        ? `برداشت ${faNum(stackN)} کارت جریمه`
+        : 'برداشتن کارت';
+    }
+    const stackBadge = $('stackBadge');
+    if (stackBadge) {
+      stackBadge.hidden = !stackN;
+      if (stackN) $('stackBadgeCount').textContent = faNum(stackN);
+    }
 
     // دیک قابل برداشتن
     $('deckPile').classList.toggle('can-draw', myTurn && !v.drawnThisTurn);
@@ -325,7 +344,7 @@
     // --- دست ---
     renderHand(s, myTurn, first);
 
-    // --- بنر گرفتن یونو ---
+    // --- بنر گرفتن UCHO ---
     const cb = $('catchBanner');
     if (v.canCatch && v.canCatch.length && s.state === 'playing') {
       const names = v.canCatch.map(pid => {
@@ -333,7 +352,7 @@
         return p ? p.name : '';
       });
       cb.hidden = false;
-      cb.innerHTML = `<button id="catchBtn"><span class="icon">${window.UNOIcons.icon('siren')}</span>${escapeHTML(names[0])} یونو نگفت — بگیرش!</button>`;
+      cb.innerHTML = `<button id="catchBtn"><span class="icon">${window.UNOIcons.icon('siren')}</span>${escapeHTML(names[0])} UCHO نگفت — بگیرش!</button>`;
       $('catchBtn').onclick = () => emit('catchUno', { accusedId: v.canCatch[0] });
     } else {
       cb.hidden = true;
@@ -437,8 +456,8 @@
         break;
       case 'uno':
         SFX.uno();
-        bigUnoPop();
-        toast('یونو!', 'good');
+        bigUchoPop();
+        toast('UCHO!', 'good');
         break;
       case 'caught':
         SFX.caught();
@@ -476,10 +495,10 @@
     } catch (e) {}
   }
 
-  function bigUnoPop() {
+  function bigUchoPop() {
     const el = document.createElement('div');
     el.className = 'big-uno';
-    el.innerHTML = '<span>UNO!</span>';
+    el.innerHTML = '<span>UCHO!</span>';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1500);
   }
@@ -601,7 +620,7 @@
     $('shareBtn').onclick = () => {
       const code = state ? state.code : myRoomCode;
       const inviter = (me && me.first_name) || 'دوستت';
-      const text = `${inviter} تو را به بازی یونو دعوت کرد!\n\nکد اتاق: ${code}\n\nهمین حالا بپیوند!`;
+      const text = `${inviter} تو را به بازی UCHO دعوت کرد!\n\nکد اتاق: ${code}\n\nهمین حالا بپیوند!`;
       const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink(code))}&text=${encodeURIComponent(text)}`;
       if (tg && tg.openTelegramLink) tg.openTelegramLink(url);
       else window.open(url, '_blank');

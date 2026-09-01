@@ -1,5 +1,5 @@
 /**
- * server.js — سرور بازی آنلاین یونو (Telegram Mini App)
+ * server.js — سرور بازی آنلاین UCHO (Telegram Mini App)
  * Express + Socket.IO + Telegram Bot (long polling)
  */
 const express = require('express');
@@ -398,11 +398,15 @@ setInterval(() => {
     if (now - room.turnStartedAt > 90 * 1000) {
       const p = room.currentPlayer();
       if (!p || !p.connected) continue;
-      if (!room.drawnThisTurn) {
+      if (room.pendingDraw > 0) {
+        // stack pending: auto-take the pile (drawCard resolves and skips)
+        room.drawCard(p.id);
+        emitEvent(room, { type:'draw', playerId: p.id, count: room.players.find(pp => pp.id === p.id).hand.length, auto: true });
+      } else if (!room.drawnThisTurn) {
         room.drawCard(p.id);
         emitEvent(room, { type:'draw', playerId: p.id, count: 1, auto: true });
       }
-      room.passTurn(p.id);
+      if (room.drawnThisTurn && room.currentPlayerId() === p.id) room.passTurn(p.id);
       broadcastRoom(room);
     }
   }
@@ -462,6 +466,17 @@ function runAITurn(room) {
     const cur = room.currentPlayer();
     if (!cur || cur.id !== p.id) return; // turn changed
     if (room.colorPickPending) return; // chooseColor path will handle this
+    // stack rule: answer a pending +2 with own +2, otherwise take the pile
+    if (room.pendingDraw > 0) {
+      const d2 = cur.hand.find(c => c.value ==='draw2');
+      if (d2) {
+        room.playCard(p.id, d2.id);
+      } else {
+        room.drawCard(p.id); // draws the whole stack and is skipped
+      }
+      broadcastRoom(room);
+      return;
+    }
     if (room.drawnThisTurn) {
       // already drew — must pass
       room.passTurn(p.id);
@@ -660,7 +675,7 @@ function handleBotUpdate(upd) {
   }
 
   // --- دکمه‌های کیبورد ---
-  if (text ==='ساخت اتاق جدید' || text ==='ساخت اتاق' || text ==='بازی یونو') return cmdPlay(chatId, fromUser);
+  if (text ==='ساخت اتاق جدید' || text ==='ساخت اتاق' || text ==='بازی UCHO') return cmdPlay(chatId, fromUser);
   if (text ==='پیوستن با کد' || text ==='پیوستن') return cmdJoinPrompt(chatId);
   if (text ==='قوانین') return cmdRules(chatId);
   if (text ==='آمار من') return cmdStats(chatId, userKey);
@@ -685,8 +700,8 @@ async function cmdStart(chatId, fromUser, args) {
   const firstName = escapeHtml(fromUser.first_name ||'دوست من');
   const text =
 `سلام <b>${firstName}</b>!\n\n` +
-`به ربات <b>یونو آنلاین</b> خوش آمدی.\n` +
-`اینجا می‌تونی با دوستانت یونوی آنلاین بازی کنی.\n\n` +
+`به ربات <b>UCHO آنلاین</b> خوش آمدی.\n` +
+`اینجا می‌تونی با دوستانت UCHO آنلاین بازی کنی.\n\n` +
 `━━━━━━━━━━━━━━━━━━\n` +
 `<b>راهنمای کامل دستورات:</b>\n━━━━━━━━━━━━━━━━━━\n\n` +
 `<b>ساخت اتاق</b>\n` +
@@ -710,7 +725,7 @@ async function cmdStart(chatId, fromUser, args) {
 `→ یک لینک دعوت‌نامه برای اتاق فعلی‌ات می‌سازد.\n\n` +
 `<b>قوانین بازی</b>\n` +
 `<code>/rules</code>\n` +
-`→ خلاصه‌ای از قوانین یونو.\n\n` +
+`→ خلاصه‌ای از قوانین UCHO.\n\n` +
 `<b>آمار من</b>\n` +
 `<code>/stats</code>\n` +
 `→ اطلاعات حساب شما.\n\n` +
@@ -920,15 +935,15 @@ async function cmdInvite(chatId, userKey) {
 
 async function cmdRules(chatId) {
   const text =
-`<b>قوانین یونو</b>\n\n` +
+`<b>قوانین UCHO</b>\n\n` +
 `<b>هدف:</b> اولین نفری که همهٔ کارت‌هایش را بازی کند.\n\n` +
 `▶ <b>نوبت:</b> کارتی بازی کن که هم‌رنگ، هم‌عدد یا هم‌نماد کارت روی میز باشد. اگر نداشتی، یک کارت بردار.\n\n` +
 `<b>رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.\n` +
 `<b>معکوس (Reverse):</b> جهت بازی برعکس می‌شود.\n` +
-`<b>+۲ (Draw Two):</b> بازیکن بعدی ۲ کارت برمی‌دارد و نوبتش رد می‌شود.\n` +
+`<b>+۲ (Draw Two):</b> بازیکن بعدی ۲ کارت برمی‌دارد و نوبتش رد می‌شود. اگر خودش ۲+ داشته باشد می‌تواند روی آن بگذارد و جریمه جمع می‌شود (۲، ۴، ۶…)؛ در پایان، بازیکنی که نتواند ۲+ پاسخ دهد همهٔ کارت‌های پشته را برمی‌دارد.\n` +
 `<b>وایلد (Wild):</b> رنگ دلخواه انتخاب می‌کنی.\n` +
 `<b>وایلد +۴:</b> رنگ انتخاب می‌کنی و بازیکن بعدی ۴ کارت جریمه می‌گیرد.\n\n` +
-`<b>یونو!</b> وقتی یک کارت برایت مانده، دکمهٔ «یونو!» را بزن. اگر کسی قبل از نوبت بعدی متوجه شود و «بگیرش» بزند، ۲ کارت جریمه می‌گیری!\n\n` +
+`<b>UCHO!</b> وقتی یک کارت برایت مانده، دکمهٔ «UCHO!» را بزن. اگر کسی قبل از نوبت بعدی متوجه شود و «بگیرش» بزند، ۲ کارت جریمه می‌گیری!\n\n` +
 `<b>امتیاز:</b> برنده، امتیاز کارت‌های دیگران را می‌گیرد (عددی = خودش، ویژه = ۲۰، وایلد = ۵۰).`;
   await tgCall('sendMessage', { chat_id: chatId, text, parse_mode:'HTML' }).catch(() => {});
 }

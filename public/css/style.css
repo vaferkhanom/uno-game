@@ -84,6 +84,13 @@ h1, h2, h3 { font-weight: 900; letter-spacing: 0; }
   background: linear-gradient(100deg, var(--primary) 0%, var(--accent) 55%, var(--gold) 110%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
+/* وردمارک لاتین بازی */
+.brand-latin {
+  font-family: 'Arial Black', 'Arial', 'Vazirmatn', sans-serif;
+  font-weight: 900;
+  letter-spacing: 2px;
+  -webkit-text-stroke: 1px rgba(255,255,255,.18);
+}
 
 /* ===== شیشه ===== */
 .card-glass {
@@ -439,6 +446,26 @@ h1, h2, h3 { font-weight: 900; letter-spacing: 0; }
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
 }
 .discard-area { width: clamp(70px, 22vw, 100px); aspect-ratio: 2 / 3; }
+
+/* هم‌انبار جریمه (پشتهٔ ۲+) */
+.stack-badge {
+  position: absolute;
+  top: -16px;
+  left: -14px;
+  display: flex; align-items: center; gap: 1px;
+  background: linear-gradient(135deg, var(--accent), #a00e1c);
+  color: #fff;
+  font-weight: 900; font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,255,255,.35);
+  box-shadow: 0 0 18px rgba(255,71,87,.55);
+  z-index: 3;
+  animation: unoPulse 1.2s infinite;
+  direction: ltr;
+}
+.stack-badge-plus { font-size: 12px; opacity: .9; }
+#stackBadgeCount { font-family: var(--font); }
 .discard-pile { position: absolute; inset: 0; }
 .discard-pile .uno-card-svg { width: 100%; height: 100%; filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.65)); }
 .color-ring {
@@ -610,10 +637,10 @@ h1, h2, h3 { font-weight: 900; letter-spacing: 0; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(-18px) scale(.9);} to { opacity: 1; transform: none;} }
 @keyframes toastOut { to { opacity: 0; transform: translateY(-14px);} }
 
-/* یونو بزرگ وسط صفحه */
+/* UCHO بزرگ وسط صفحه */
 .big-uno { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.big-uno span { font-size: 110px; font-weight: 900; font-style: italic; color: var(--accent); font-family: Arial, sans-serif;
-  text-shadow: 0 0 60px rgba(255,71,87,.8), 0 8px 0 #7a0812; animation: bigUnoPop 1.4s cubic-bezier(.2,1.4,.3,1) forwards; }
+.big-uno span { font-size: 96px; font-weight: 900; font-style: italic; letter-spacing: 4px; color: var(--accent); font-family: 'Arial Black', 'Arial', sans-serif;
+  -webkit-text-stroke: 2px #7a0812; text-shadow: 0 0 60px rgba(255,71,87,.8), 0 8px 0 #7a0812; animation: bigUnoPop 1.4s cubic-bezier(.2,1.4,.3,1) forwards; }
 @keyframes bigUnoPop { 0% { opacity: 0; transform: scale(.2) rotate(-18deg);} 25% { opacity: 1; transform: scale(1.15) rotate(4deg);} 40% { transform: scale(1) rotate(-2deg);} 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1.3) translateY(-40px);} }
 
 /* ===== واکنش‌گرایی ===== */

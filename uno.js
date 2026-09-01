@@ -1,9 +1,11 @@
 /**
- * uno.js — موتور کامل بازی یونو (قوانین رسمی)
- * UNO official rules engine:
+ * uno.js — موتور کامل بازی UCHO (قوانین رسمی + قاعدهٔ هم‌انبار ۲+)
+ * UCHO official rules engine:
  *  - 108 cards (4 colors, 0-9, Skip, Reverse, Draw Two, Wild, Wild Draw Four)
  *  - Deal 7, starter-card handling per official rules
- *  - Draw-one-may-play rule, UNO call & catch penalty, pile reshuffle, scoring
+ *  - Draw-one-may-play rule, UCHO call & catch penalty, pile reshuffle, scoring
+ *  - House rule "stacking": +2 on +2 chains; the first player who cannot
+ *    (or chooses not to) answer takes the whole accumulated pile and is skipped
  */
 
 const COLORS = ['red', 'yellow', 'green', 'blue'];
@@ -47,7 +49,8 @@ function cardScore(card) {
   return parseInt(card.value, 10) || 0;
 }
 
-function canPlay(card, topCard, currentColor) {
+function canPlay(card, topCard, currentColor, pendingDraw = 0) {
+  if (pendingDraw > 0) return card.value === 'draw2'; // stack rule: only +2 answers a +2
   if (card.color === 'wild') return true;
   if (card.color === currentColor) return true;
   if (card.value === topCard.value) return true;
@@ -76,6 +79,7 @@ class Room {
     this.log = []; // recent events feed
     this.colorPickPending = false; // waiting for wild color choice
     this.unoStates = {}; // playerId -> { called, until }
+    this.pendingDraw = 0; // accumulated +2 stack waiting to be answered
     this.turnStartedAt = Date.now();
   }
 
@@ -162,6 +166,7 @@ class Room {
     this.drawnThisTurn = false;
     this.colorPickPending = false;
     this.unoStates = {};
+    this.pendingDraw = 0;
     for (const p of this.players) { p.hand = []; p.connected = true; }
 
     this.deck = shuffle(buildDeck());
@@ -186,10 +191,9 @@ class Room {
       this.pushLog('کارت اول وایلد است؛ بازیکن اول رنگ را انتخاب می‌کند.');
     } else if (starter.color !== 'wild') {
       if (starter.value === 'draw2') {
-        const p = this.currentPlayer();
-        this.drawCards(p, 2);
-        this.pushLog('کارت اول +۲ بود؛ بازیکن اول ۲ کارت برداشت و رد شد.');
-        this.advanceTurn();
+        // stacking: the first player answers the starter +2 (stack or take it)
+        this.pendingDraw = 2;
+        this.pushLog('کارت اول +۲ بود؛ بازیکن اول باید ۲+ پاسخ دهد یا ۲ کارت بردارد.');
       } else if (starter.value === 'skip') {
         this.pushLog('کارت اول رد (Skip) بود؛ بازیکن اول رد شد.');
         this.advanceTurn();
@@ -246,7 +250,7 @@ class Room {
     if (ci === -1) return { error: 'کارت یافت نشد.' };
     const card = p.hand[ci];
     const top = this.topCard();
-    if (!canPlay(card, top, this.currentColor)) return { error: 'این کارت قابل بازی نیست.' };
+    if (!canPlay(card, top, this.currentColor, this.pendingDraw)) return { error: 'این کارت قابل بازی نیست.' };
 
     p.hand.splice(ci, 1);
     if (card.color === 'wild') {
@@ -283,10 +287,20 @@ class Room {
         this.advanceTurn();
       }
     } else if (card.value === 'draw2') {
-      const victim = this.players[this.nextIndex()];
-      this.drawCards(victim, 2);
-      this.pushLog(`${victim.name} ۲ کارت برداشت!`);
-      this.advanceTurn(); this.advanceTurn();
+      this.pendingDraw += 2;
+      if (this.pendingDraw > 2) this.pushLog(`هم‌انبار شد! اکنون ${this.pendingDraw} کارت روی میز است.`);
+      const next = this.players[this.nextIndex()];
+      const nextCanStack = next.hand.some(c => c.value === 'draw2');
+      this.advanceTurn();
+      if (!nextCanStack) {
+        // next player cannot answer: they take the whole pile and are skipped
+        this.drawCards(next, this.pendingDraw);
+        this.pushLog(`${next.name} ${this.pendingDraw} کارت برداشت!`);
+        this.pendingDraw = 0;
+        this.advanceTurn();
+      } else {
+        this.pushLog(`${next.name} باید ۲+ پاسخ دهد یا ${this.pendingDraw} کارت بردارد.`);
+      }
     } else if (card.value === 'wild4') {
       const victim = this.players[this.nextIndex()];
       this.drawCards(victim, 4);
@@ -319,13 +333,24 @@ class Room {
     const p = this.playerById(playerId);
     if (!p || p.id !== this.currentPlayerId()) return { error: 'نوبت شما نیست.' };
     if (this.colorPickPending) return { error: 'اول رنگ را انتخاب کنید.' };
+
+    // stack rule: taking the accumulated pile (draw the whole stack and skip)
+    if (this.pendingDraw > 0) {
+      const n = this.pendingDraw;
+      this.drawCards(p, n);
+      this.pendingDraw = 0;
+      this.pushLog(`${p.name} ${n} کارت جریمه برداشت و رد شد.`);
+      this.advanceTurn();
+      return { ok: true, drawn: n };
+    }
+
     if (this.drawnThisTurn) return { error: 'شما در این نوبت کارت برداشتید.' };
 
     this.drawCards(p, 1);
     this.drawnThisTurn = true;
     const drawn = p.hand[p.hand.length - 1];
     this.pushLog(`${p.name} یک کارت برداشت.`);
-    const playable = drawn ? canPlay(drawn, this.topCard(), this.currentColor) : false;
+    const playable = drawn ? canPlay(drawn, this.topCard(), this.currentColor, this.pendingDraw) : false;
     return { ok: true, playable };
   }
 
@@ -334,6 +359,7 @@ class Room {
     if (this.state !== 'playing') return { error: 'بازی فعال نیست.' };
     const p = this.playerById(playerId);
     if (!p || p.id !== this.currentPlayerId()) return { error: 'نوبت شما نیست.' };
+    if (this.pendingDraw > 0) return { error: 'اول باید کارت‌های جریمه را بردارید.' };
     if (!this.drawnThisTurn) return { error: 'اول باید یک کارت بردارید.' };
     this.pushLog(`${p.name} نوبت را رد کرد.`);
     this.advanceTurn();
@@ -343,10 +369,10 @@ class Room {
   callUno(playerId) {
     this.touch();
     const st = this.unoStates[String(playerId)];
-    if (!st) return { error: 'شرایط یونو ندارید.' };
+    if (!st) return { error: 'شرایط UCHO ندارید.' };
     st.called = true;
     const p = this.playerById(playerId);
-    this.pushLog(`${p.name} گفت: یونو!`);
+    this.pushLog(`${p.name} گفت: UCHO!`);
     return { ok: true };
   }
 
@@ -354,12 +380,12 @@ class Room {
     this.touch();
     const st = this.unoStates[String(accusedId)];
     if (!st) return { error: 'امکان گرفتن نیست.' };
-    if (st.called) return { error: 'او یونو گفته بود!' };
+    if (st.called) return { error: 'او UCHO گفته بود!' };
     if (Date.now() > st.until) { delete this.unoStates[String(accusedId)]; return { error: 'فرصت تمام شد.' }; }
     const accused = this.playerById(accusedId);
     const catcher = this.playerById(catcherId);
     if (!accused || !catcher) return { error: 'بازیکن یافت نشد.' };
-    if (accused.hand.length !== 1) { delete this.unoStates[String(accusedId)]; return { error: 'شرایط یونو دیگر برقرار نیست.' }; }
+    if (accused.hand.length !== 1) { delete this.unoStates[String(accusedId)]; return { error: 'شرایط UCHO دیگر برقرار نیست.' }; }
     this.drawCards(accused, 2);
     delete this.unoStates[String(accusedId)];
     this.pushLog(`${catcher.name} ${accused.name} را گیر انداخت! ۲ کارت جریمه`);
@@ -451,8 +477,9 @@ class Room {
           if (!self.drawnThisTurn || viewerIdStr !== self.currentPlayerId()) return null;
           const vv = self.playerById(viewerIdStr);
           if (!vv || !vv.hand.length) return null;
-          return canPlay(vv.hand[vv.hand.length - 1], self.topCard(), self.currentColor);
+          return canPlay(vv.hand[vv.hand.length - 1], self.topCard(), self.currentColor, self.pendingDraw);
         })(),
+        pendingDraw: this.pendingDraw,
       },
       log: this.log.slice(-12),
       winnerId: this.winnerId,

@@ -225,3 +225,21 @@ No further action needed unless the user's live re-test shows a specific command
   (body.innerText scanned for emoji ranges) + Vazirmatn/weight-900 assertions. Production
   socket test (test-game.js vs Railway) passed pre-push.
 - Cache-bust: style.css + app.js + icons.js ?v=g20260831-1
+
+## [2026-08-31 STACK-RULE + UCHO] +2 stacking mechanic & full rebrand to UCHO
+- Stack rule implemented (house rule): playing +2 accumulates room.pendingDraw (+2 each);
+  next player must answer with their own +2 (any color) or take the whole pile and is skipped.
+  Chosen option: take-pile = drawCard while pendingDraw>0 (draws N, clears stack, skips).
+  passTurn is blocked while a stack is open. Starter +2 now gives first player the choice.
+  Engine guards: canPlay() gates to draw2 during a stack; last-card +2 still wins (pile void).
+- AI: bots stack when they hold +2, otherwise take the pile; watchdog auto-takes on 90s stall.
+- Client: draw button becomes "برداشت N کارت جریمه", red stack badge (+N) on discard pile,
+  banner explains the decision, hand highlights only +2 as playable during a stack.
+- Rebrand UNO→UCHO everywhere displayed: card back wordmark "UCHO / ONLINE" (Arial Black,
+  letter-spaced, stroke), splash+hero <span class="brand-latin">UCHO</span>, big pop "UCHO!",
+  UCHO! button, help/rules texts, bot messages/keyboard, package.json, README. No 'یونو'/'UNO'
+  remains in any shipped file. Cache-bust ?v=g20260831-2.
+- Tests: new test-stack.js — 20/20 (3-player chain 2→4→auto-take+skip, choose-to-take,
+  pass-blocked, starter +2, last-card +2 win). E2E 46/46 incl. updated second-player bot
+  driver that stacks. Production socket test passed. TDZ bug (stackN before init) found by
+  E2E and fixed.

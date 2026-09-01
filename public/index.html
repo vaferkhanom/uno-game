@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0b0b1e">
-  <title>یونو آنلاین</title>
+  <title>UCHO آنلاین</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/css/style.css?v=g20260831-1">
+  <link rel="stylesheet" href="/css/style.css?v=g20260831-2">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23ff3b3b'/><text x='50' y='66' font-size='40' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>U</text></svg>">
 </head>
 <body>
@@ -20,7 +20,7 @@
   <div id="splash" class="screen active">
     <div class="splash-inner">
       <div class="splash-logo" id="splashLogo"></div>
-      <h1 class="splash-title">یونو <span class="grad-text">آنلاین</span></h1>
+      <h1 class="splash-title"><span class="brand-latin">UCHO</span> <span class="grad-text">آنلاین</span></h1>
       <p class="splash-sub">در حال اتصال به سرور…</p>
       <div class="loader"><div class="loader-bar"></div></div>
       <p id="splashError" class="splash-error" hidden></p>
@@ -44,7 +44,7 @@
 
     <div class="home-hero">
       <div class="hero-cards" id="heroCards"></div>
-      <h1 class="hero-title">یونو <span class="grad-text">آنلاین</span></h1>
+      <h1 class="hero-title"><span class="brand-latin">UCHO</span> <span class="grad-text">آنلاین</span></h1>
       <p class="hero-sub">با ربات‌ها تمرین کن یا دوستانت را به چالش بکش</p>
     </div>
 
@@ -66,8 +66,9 @@
       <ul>
         <li>کارتِ هم‌رنگ یا هم‌عددِ کارت روی میز را بازی کن</li>
         <li>کارت‌های ویژه: <b class="k">رد</b>، <b class="k">معکوس</b> و <b class="k num">۲+</b></li>
+        <li>روی ۲+ می‌توانی ۲+ بگذاری و جریمه جمع می‌شود؛ آخرین بازیکن همه را برمی‌دارد</li>
         <li><b class="k wild">وایلد</b> رنگ را عوض می‌کند؛ <b class="k wild num">۴+</b> چهار کارت می‌دهد</li>
-        <li>با یک کارتِ باقی‌مانده، دکمهٔ <b class="k">یونو</b> را بزن</li>
+        <li>با یک کارتِ باقی‌مانده، دکمهٔ <b class="k">UCHO</b> را بزن</li>
         <li>اولین نفری که کارت‌هایش تمام شود، برنده است</li>
       </ul>
     </div>
@@ -135,6 +136,9 @@
             <div class="color-ring" id="colorRing"></div>
             <div class="discard-pile" id="discardPile"></div>
           </div>
+          <div class="stack-badge" id="stackBadge" hidden>
+            <span class="stack-badge-plus">+</span><span id="stackBadgeCount">۲</span>
+          </div>
           <div class="direction-badge" id="directionBadge" title="جهت بازی">
             <span class="icon" data-icon="reverse"></span>
           </div>
@@ -146,9 +150,9 @@
 
     <!-- اکشن‌ها -->
     <div class="game-actions" id="gameActions">
-      <button class="btn btn-action btn-draw" id="drawBtn"><span class="btn-ic" data-icon="cards"></span>برداشتن کارت</button>
+      <button class="btn btn-action btn-draw" id="drawBtn"><span class="btn-ic" data-icon="cards"></span><span id="drawBtnLabel">برداشتن کارت</span></button>
       <button class="btn btn-action btn-pass" id="passBtn" disabled><span class="btn-ic" data-icon="skip"></span>گذر</button>
-      <button class="btn btn-action btn-uno" id="unoBtn" hidden><span class="btn-ic" data-icon="siren"></span>یونو!</button>
+      <button class="btn btn-action btn-uno" id="unoBtn" hidden><span class="btn-ic" data-icon="siren"></span>UCHO!</button>
     </div>
 
     <!-- دست بازیکن -->
@@ -156,7 +160,7 @@
       <div class="hand" id="hand"></div>
     </div>
 
-    <!-- بنر گرفتن یونو -->
+    <!-- بنر گرفتن UCHO -->
     <div class="catch-banner" id="catchBanner" hidden></div>
   </div>
 
@@ -188,16 +192,16 @@
 
   <div class="modal" id="helpModal" hidden>
     <div class="modal-box card-glass help-box">
-      <h3><span class="icon" data-icon="book"></span>راهنمای یونو</h3>
+      <h3><span class="icon" data-icon="book"></span>راهنمای UCHO</h3>
       <div class="help-content">
         <p><b>هدف:</b> زودتر از بقیه کارت‌هایت را تمام کن.</p>
         <p><b>نوبت:</b> کارتی بازی کن که هم‌رنگ یا هم‌عدد/هم‌نمادِ کارت روی میز باشد، یا یک کارت بردار.</p>
         <p><b>رد (Skip):</b> بازیکن بعدی یک نوبت رد می‌شود.</p>
         <p><b>معکوس (Reverse):</b> جهت چرخش بازی عوض می‌شود؛ به نشانهٔ درخشان کنار نام بازیکن‌ها دقت کن.</p>
-        <p><b>۲+:</b> بازیکن بعدی ۲ کارت برمی‌دارد و رد می‌شود.</p>
+        <p><b>۲+ و هم‌انبار:</b> بازیکن بعدی ۲ کارت برمی‌دارد و رد می‌شود — اما اگر خودش ۲+ داشته باشد می‌تواند روی آن بگذارد تا جریمه جمع شود؛ در پایان، بازیکنی که نتواند ۲+ پاسخ دهد همهٔ کارت‌های پشته را برمی‌دارد.</p>
         <p><b>وایلد:</b> رنگ دلخواه را انتخاب کن.</p>
         <p><b>۴+ وایلد:</b> رنگ انتخاب کن؛ بازیکن بعدی ۴ کارت برمی‌دارد و رد می‌شود.</p>
-        <p><b>یونو:</b> وقتی یک کارت برایت مانده دکمهٔ «یونو!» را بزن، وگرنه اگر کسی تو را بگیرد ۲ کارت جریمه می‌گیری.</p>
+        <p><b>UCHO:</b> وقتی یک کارت برایت مانده دکمهٔ «UCHO!» را بزن، وگرنه اگر کسی تو را بگیرد ۲ کارت جریمه می‌گیری.</p>
         <p><b>امتیاز:</b> برندهٔ هر دست، امتیاز کارت‌های بقیه را می‌گیرد (عددی = خود عدد، ویژه = ۲۰، وایلد = ۵۰).</p>
       </div>
       <button class="btn btn-primary" id="helpClose"><span class="btn-ic" data-icon="check"></span>فهمیدم</button>
@@ -219,8 +223,8 @@
   <div id="toastWrap"></div>
 
   <script src="/vendor/socket.io.min.js?v=1a2b3c4d"></script>
-  <script src="/js/cards.js?v=1a2b3c4d"></script>
-  <script src="/js/icons.js?v=g20260831-1"></script>
-  <script src="/js/app.js?v=g20260831-1"></script>
+  <script src="/js/cards.js?v=g20260831-2"></script>
+  <script src="/js/icons.js?v=g20260831-2"></script>
+  <script src="/js/app.js?v=g20260831-2"></script>
 </body>
 </html>

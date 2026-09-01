@@ -1,5 +1,5 @@
 /**
- * cards.js — رندر کارت‌های یونو با SVG (کارت‌ها انگلیسی می‌مانند)
+ * cards.js — رندر کارت‌های UCHO با SVG (کارت‌ها انگلیسی می‌مانند)
  */
 (function () {
   const C = {
@@ -138,7 +138,7 @@
   }
 
 
-  /** Card back (for deck pile) */
+  /** Card back (for deck pile) — UCHO wordmark */
   function cardBackSVG() {
     const id = gid('rb');
     const clipId = id + '_c';
@@ -146,15 +146,19 @@
       <defs>${gradDef('red', id)}</defs>
       <rect x="6" y="6" width="228" height="348" rx="30" fill="#0d0d1c"/>
       <rect x="12" y="12" width="216" height="336" rx="25" fill="#111124"/>
-      <clipPath id="${clipId}"><ellipse cx="120" cy="180" rx="92" ry="140" transform="rotate(-30 120 180)"/></clipPath>
+      <clipPath id="${clipId}"><ellipse cx="120" cy="180" rx="88" ry="136" transform="rotate(-30 120 180)"/></clipPath>
       <g clip-path="url(#${clipId})"><rect x="10" y="10" width="220" height="340" fill="url(#${id})"/></g>
-      <ellipse cx="120" cy="180" rx="92" ry="140" transform="rotate(-30 120 180)" fill="none" stroke="#fff" stroke-width="7"/>
-      <text x="120" y="205" text-anchor="middle" font-size="84" font-weight="900" font-family="Arial, sans-serif" font-style="italic" fill="#fff" transform="rotate(-30 120 180)">UNO</text>
+      <ellipse cx="120" cy="180" rx="88" ry="136" transform="rotate(-30 120 180)" fill="none" stroke="#fff" stroke-width="7"/>
+      <text x="120" y="200" text-anchor="middle" font-size="52" font-weight="900" letter-spacing="4"
+        font-family="Arial Black, Arial, sans-serif" fill="#fff" stroke="rgba(0,0,0,.35)" stroke-width="2"
+        style="paint-order:stroke" transform="rotate(-30 120 180)">UCHO</text>
+      <text x="120" y="228" text-anchor="middle" font-size="15" font-weight="700" letter-spacing="6"
+        font-family="Arial, sans-serif" fill="rgba(255,255,255,.85)" transform="rotate(-30 120 180)">ONLINE</text>
       <rect x="6" y="6" width="228" height="348" rx="30" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
     </svg>`;
   }
 
-  /** Big UNO logo for splash */
+  /** Big UCHO logo for splash */
   function logoSVG(size) {
     size = size || 140;
     const id = gid('lg');
@@ -163,10 +167,13 @@
       <defs>${gradDef('red', id)}</defs>
       <rect x="6" y="6" width="228" height="348" rx="30" fill="#0d0d1c"/>
       <rect x="12" y="12" width="216" height="336" rx="25" fill="url(#${id})"/>
-      <clipPath id="${clipId}"><ellipse cx="120" cy="180" rx="92" ry="140" transform="rotate(-30 120 180)"/></clipPath>
+      <clipPath id="${clipId}"><ellipse cx="120" cy="180" rx="88" ry="136" transform="rotate(-30 120 180)"/></clipPath>
       <g clip-path="url(#${clipId})"><rect x="10" y="10" width="220" height="340" fill="#fff"/></g>
-      <ellipse cx="120" cy="180" rx="92" ry="140" transform="rotate(-30 120 180)" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="5"/>
-      <text x="120" y="232" text-anchor="middle" font-size="150" font-weight="900" font-family="Arial, sans-serif" font-style="italic" fill="${C.red.dark}" transform="rotate(-14 120 180)">UNO</text>
+      <ellipse cx="120" cy="180" rx="88" ry="136" transform="rotate(-30 120 180)" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="5"/>
+      <text x="120" y="196" text-anchor="middle" font-size="46" font-weight="900" letter-spacing="3"
+        font-family="Arial Black, Arial, sans-serif" fill="${C.red.dark}" transform="rotate(-14 120 180)">UCHO</text>
+      <text x="120" y="222" text-anchor="middle" font-size="14" font-weight="700" letter-spacing="5"
+        font-family="Arial, sans-serif" fill="rgba(0,0,0,.55)" transform="rotate(-14 120 180)">ONLINE</text>
     </svg>`;
   }
 
